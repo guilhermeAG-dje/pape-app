@@ -1,24 +1,100 @@
 <!DOCTYPE html>
-<html lang="pt">
+<html lang="pt-PT">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <meta name="theme-color" content="#0f766e">
   <title>Admin - Avaliacao</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <link rel="stylesheet" href="/static/css/admin.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body class="admin-page">
+<body class="admin-page" data-admin-page="overview">
   <header class="admin-header">
+    <div class="admin-brand">
+      {% if has_logo %}
+      <img src="/static/img/logo.png" class="admin-logo" alt="Logo">
+      {% else %}
+      <div class="admin-logo-fallback">PAPE</div>
+      {% endif %}
+    </div>
     <div>
       <h1>Painel Administrativo</h1>
-      <p>An?lise de satisfa??o</p>
+      <p class="muted">Analise de satisfacao</p>
     </div>
     <div class="admin-actions">
+      <a class="btn-outline" href="/admin_2026/dashboard">Monitorizacao</a>
+      <a class="btn-outline" href="/admin_2026/reminders">Alarmes</a>
       <a class="btn-outline" href="/admin_2026/logout">Sair</a>
     </div>
   </header>
 
   <main class="admin-container">
+    {% if pw_status == 'ok' %}
+    <div class="status success" role="status">Senha atualizada com sucesso.</div>
+    {% elif pw_status == 'err' %}
+    <div class="status error" role="status">Erro ao atualizar a senha.</div>
+    {% endif %}
+    {% if email_status == 'ok' %}
+    <div class="status success" role="status">Email mensal enviado com sucesso.</div>
+    {% elif email_status == 'err' %}
+    <div class="status error" role="status">Falha ao enviar email mensal.</div>
+    {% elif email_status == 'sent' %}
+    <div class="status" role="status">Email mensal ja foi enviado para este mes.</div>
+    {% endif %}
+
+    <section class="admin-shell">
+      <div class="shell-tabs" role="navigation" aria-label="Navegacao administrativa">
+        <a class="shell-tab is-active" href="/admin_2026">Avaliacao</a>
+        <a class="shell-tab" href="/admin_2026/dashboard">Monitorizacao</a>
+        <a class="shell-tab" href="/admin_2026/reminders">Alarmes</a>
+      </div>
+
+      <div class="context-grid">
+        <article class="context-card patient-switch-card">
+          <div>
+            <div class="context-kicker">Hub do painel</div>
+            <h3>Entrar no utente certo</h3>
+          </div>
+          <div class="patient-switcher-row">
+            <label class="sr-only" for="admin-patient-select">Selecionar utente</label>
+            <select id="admin-patient-select" class="input-base select-base" data-patient-select>
+              <option value="">A carregar utentes...</option>
+            </select>
+            <button type="button" class="btn-outline" data-patient-refresh>Atualizar lista</button>
+          </div>
+          <p class="muted small" data-patient-caption>Usa este seletor para abrir rapidamente monitorizacao, alarmes ou a ficha do utente.</p>
+          <div class="inline-actions">
+            <a class="btn-primary" href="/admin_2026/dashboard" data-patient-nav="dashboard">Monitorizacao</a>
+            <a class="btn-outline" href="/admin_2026/reminders" data-patient-nav="reminders">Alarmes</a>
+            <a class="btn-outline" href="/admin_2026/users/" data-patient-detail>Ficha do utente</a>
+          </div>
+        </article>
+
+        <article class="context-card">
+          <div class="context-kicker">Leitura do sistema</div>
+          <h3>Como usar esta area</h3>
+          <div class="mini-stats">
+            <div class="mini-stat">
+              <strong>Hoje</strong>
+              <span>Ver satisfacao do dia</span>
+            </div>
+            <div class="mini-stat">
+              <strong>Semana</strong>
+              <span>Comparar evolucao</span>
+            </div>
+            <div class="mini-stat">
+              <strong>Utente</strong>
+              <span>Ir da analise para a acao</span>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
     <section class="cards">
       <div class="card">
         <h3>Total Hoje ({{ day }})</h3>
@@ -39,44 +115,149 @@
         <p class="big">{{ stats.insatis }}</p>
         <span class="muted">{{ stats.pct_insatis }}%</span>
       </div>
+      <div class="card">
+        <h3>Score Hoje</h3>
+        <p class="big">{{ stats.score }}%</p>
+        <span class="muted">Escala 0-100</span>
+      </div>
+    </section>
+
+    <section class="cards">
+      <div class="card alt">
+        <h3>Periodo ({{ range_start }} a {{ range_end }})</h3>
+        <p class="big">{{ range_stats.total }}</p>
+      </div>
+      <div class="card alt">
+        <h3>Score do Periodo</h3>
+        <p class="big">{{ range_stats.score }}%</p>
+        <span class="muted">Media de satisfacao</span>
+      </div>
+      <div class="card alt">
+        <h3>Melhor Dia</h3>
+        <p class="big">{{ best_day or '-' }}</p>
+        <span class="muted">Maior score</span>
+      </div>
+      <div class="card alt">
+        <h3>Pior Dia</h3>
+        <p class="big">{{ worst_day or '-' }}</p>
+        <span class="muted">Menor score</span>
+      </div>
     </section>
 
     <section class="filters">
       <form method="GET" class="filter-box">
         <label>Filtrar por dia</label>
-        <input type="date" name="day" value="{{ day }}">
+        <input type="date" name="day" value="{{ day }}" aria-label="Filtrar por dia">
         <button type="submit">Aplicar</button>
         <a class="btn-outline" href="/admin_2026?day={{ today }}">Hoje</a>
       </form>
       <form method="GET" class="filter-box">
         <label>Comparar dias</label>
-        <input type="date" name="compare_a" value="{{ compare_data.a if compare_data }}">
-        <input type="date" name="compare_b" value="{{ compare_data.b if compare_data }}">
+        <input type="date" name="compare_a" value="{{ compare_data.a if compare_data }}" aria-label="Comparar dia A">
+        <input type="date" name="compare_b" value="{{ compare_data.b if compare_data }}" aria-label="Comparar dia B">
         <button type="submit">Comparar</button>
+      </form>
+      <form method="GET" class="filter-box">
+        <label>Periodo personalizado</label>
+        <input type="date" name="start" value="{{ range_start }}" aria-label="Periodo inicial">
+        <input type="date" name="end" value="{{ range_end }}" aria-label="Periodo final">
+        <button type="submit">Aplicar</button>
       </form>
     </section>
 
     <section class="charts">
       <div class="chart-card">
-        <h3>Gr?fico de Barras</h3>
+        <h3>Grafico de Barras</h3>
         <canvas id="barChart"></canvas>
       </div>
       <div class="chart-card">
-        <h3>Gr?fico Circular</h3>
+        <h3>Grafico Circular</h3>
         <canvas id="pieChart"></canvas>
       </div>
     </section>
 
     <section class="charts">
       <div class="chart-card full">
-        <h3>An?lise Temporal (?ltimos 7 dias)</h3>
+        <h3>Analise Temporal (ultimos 7 dias)</h3>
         <canvas id="lineChart"></canvas>
+      </div>
+    </section>
+
+    <section class="charts">
+      <div class="chart-card">
+        <h3>Periodo Selecionado (por grau)</h3>
+        <canvas id="rangeChart"></canvas>
+      </div>
+      <div class="chart-card">
+        <h3>Totais do Periodo</h3>
+        <canvas id="rangeTotalChart"></canvas>
+      </div>
+    </section>
+
+    <section class="chart-card full">
+      <h3>Heatmap por Dia e Hora (periodo selecionado)</h3>
+      <div class="heatmap">
+        <table>
+          <thead>
+            <tr>
+              <th>Dia</th>
+              {% for h in range(24) %}
+              <th>{{ h }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in heat_levels %}
+            <tr>
+              <td class="heat-label">{{ heat_weekdays[loop.index0] }}</td>
+              {% for level in row %}
+              <td class="heat-cell heat-l{{ level }}"></td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="charts">
+      <div class="chart-card full">
+        <h3>Resumo Mensal (linha)</h3>
+        <p class="muted">Mes atual: {{ current_month }} | Mes anterior: {{ prev_month }}</p>
+        <canvas id="monthChart"></canvas>
+      </div>
+      <div class="chart-card full">
+        <h3>Resumo Mensal (barras)</h3>
+        <canvas id="monthBarChart"></canvas>
+      </div>
+    </section>
+
+    <section class="cards">
+      <div class="card alt">
+        <h3>Total Mes Atual</h3>
+        <p class="big">{{ month_summary.total }}</p>
+        <span class="muted">Score {{ month_summary.score }}%</span>
+      </div>
+      <div class="card alt">
+        <h3>Total Mes Anterior</h3>
+        <p class="big">{{ prev_month_summary.total }}</p>
+        <span class="muted">Score {{ prev_month_summary.score }}%</span>
+      </div>
+      <div class="card alt">
+        <h3>Diferenca de Score</h3>
+        <p class="big">{{ (month_summary.score - prev_month_summary.score) | round(1) }}%</p>
+        <span class="muted">Mes atual vs anterior</span>
+      </div>
+      <div class="card alt">
+        <h3>Diferenca de Total</h3>
+        <p class="big">{{ month_summary.total - prev_month_summary.total }}</p>
+        <span class="muted">Mes atual vs anterior</span>
       </div>
     </section>
 
     {% if compare_data %}
     <section class="compare">
-      <h3>Compara??o entre dias</h3>
+      <h3>Comparacao entre dias</h3>
       <div class="compare-grid">
         <div class="compare-card">
           <h4>{{ compare_data.a }}</h4>
@@ -99,51 +280,124 @@
         <h3>Registos do Dia ({{ day }})</h3>
         <div class="export">
           <form method="GET" action="/admin_2026/export" class="export-form">
-            <input type="date" name="start" value="{{ day }}">
-            <input type="date" name="end" value="{{ day }}">
+            <input type="date" name="start" value="{{ range_start }}" aria-label="Exportar desde">
+            <input type="date" name="end" value="{{ range_end }}" aria-label="Exportar ate">
             <button name="format" value="csv" type="submit">Exportar CSV</button>
             <button name="format" value="txt" type="submit" class="btn-outline">Exportar TXT</button>
+            <button name="format" value="pdf" type="submit" class="btn-primary">Exportar PDF</button>
+            <button name="format" value="xlsx" type="submit">Exportar XLSX</button>
           </form>
         </div>
       </div>
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Grau</th>
-            <th>Data</th>
-            <th>Hora</th>
-            <th>Dia Semana</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for r in records %}
-          <tr>
-            <td>{{ r.id }}</td>
-            <td>{{ r.grau_satisfacao }}</td>
-            <td>{{ r.data }}</td>
-            <td>{{ r.hora }}</td>
-            <td>{{ r.dia_semana }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Grau</th>
+              <th>Data</th>
+              <th>Hora</th>
+              <th>Dia Semana</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in records %}
+            <tr>
+              <td>{{ r.id }}</td>
+              <td>{{ r.grau_satisfacao }}</td>
+              <td>{{ r.data }}</td>
+              <td>{{ r.hora }}</td>
+              <td>{{ r.dia_semana }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
       <div class="pagination">
         {% if page > 1 %}
           <a href="/admin_2026?day={{ day }}&page={{ page - 1 }}&limit={{ limit }}">Anterior</a>
         {% endif %}
-        <span>P?gina {{ page }}</span>
+        <span>Pagina {{ page }}</span>
         {% if total_records > page * limit %}
-          <a href="/admin_2026?day={{ day }}&page={{ page + 1 }}&limit={{ limit }}">Pr?xima</a>
+          <a href="/admin_2026?day={{ day }}&page={{ page + 1 }}&limit={{ limit }}">Proxima</a>
         {% endif %}
+      </div>
+    </section>
+
+    <section class="side-by-side">
+      <div class="panel">
+        <h3>Relatorio Mensal</h3>
+        <form method="GET" action="/admin_2026/report/monthly" class="form-grid">
+          <input type="month" name="month" value="{{ current_month }}" aria-label="Mes do relatorio" required>
+          <button type="submit">Gerar PDF do mes</button>
+        </form>
+        <form method="GET" action="/admin_2026/report/monthly/send" class="form-grid" style="margin-top: 8px;">
+          <input type="month" name="month" value="{{ current_month }}" aria-label="Mes para envio de email" required>
+          <button type="submit" class="btn-primary">Enviar por email</button>
+        </form>
+      </div>
+      <div class="panel">
+        <h3>Backup e Restore</h3>
+        <a class="btn-outline" href="/admin_2026/backup">Baixar backup</a>
+        <form method="POST" action="/admin_2026/restore" class="form-grid" enctype="multipart/form-data" style="margin-top: 8px;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="file" name="backup" accept=".db" aria-label="Ficheiro de backup" required>
+          <button type="submit" class="btn-primary">Restaurar backup</button>
+        </form>
+        <p class="muted" style="margin-top: 6px;">Funciona apenas com SQLite.</p>
+      </div>
+      <div class="panel">
+        <h3>Alterar senha</h3>
+        <form method="POST" action="/admin_2026/password" class="form-grid">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="password" name="current" placeholder="Senha atual" aria-label="Senha atual" required>
+          <input type="password" name="new" placeholder="Nova senha (min 6)" aria-label="Nova senha" required>
+          <input type="password" name="confirm" placeholder="Confirmar nova senha" aria-label="Confirmar nova senha" required>
+          <button type="submit">Atualizar senha</button>
+        </form>
+      </div>
+      <div class="panel">
+        <h3>Auditoria (ultimos 20 eventos)</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Acao</th>
+                <th>Utilizador</th>
+                <th>IP</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for log in logs %}
+              <tr>
+                <td>{{ log.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>{{ log.action }}</td>
+                <td>{{ log.admin_user or '-' }}</td>
+                <td>{{ log.ip or '-' }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
       </div>
     </section>
   </main>
 
+  <script src="/static/js/admin_shell.js"></script>
   <script>
     const stats = {{ stats | tojson }};
     const labels = {{ labels | tojson }};
     const values = {{ values | tojson }};
+    const rangeLabels = {{ range_labels | tojson }};
+    const rangeMuito = {{ range_muito | tojson }};
+    const rangeSatis = {{ range_satis | tojson }};
+    const rangeInsatis = {{ range_insatis | tojson }};
+    const rangeTotals = {{ range_totals | tojson }};
+    const monthLabels = {{ month_labels | tojson }};
+    const monthValues = {{ month_values | tojson }};
+    const prevMonthLabels = {{ prev_month_labels | tojson }};
+    const prevMonthValues = {{ prev_month_values | tojson }};
 
     const barCtx = document.getElementById('barChart');
     new Chart(barCtx, {
@@ -179,14 +433,90 @@
         datasets: [{
           label: 'Total por dia',
           data: values,
-          borderColor: '#4f46e5',
-          backgroundColor: 'rgba(79, 70, 229, 0.15)',
+          borderColor: '#0ea5e9',
+          backgroundColor: 'rgba(14, 165, 233, 0.15)',
           fill: true,
           tension: 0.3
         }]
       },
       options: { responsive: true }
     });
+
+    const rangeCtx = document.getElementById('rangeChart');
+    new Chart(rangeCtx, {
+      type: 'bar',
+      data: {
+        labels: rangeLabels,
+        datasets: [
+          { label: 'Muito', data: rangeMuito, backgroundColor: '#22c55e' },
+          { label: 'Satisfeito', data: rangeSatis, backgroundColor: '#f59e0b' },
+          { label: 'Insatisfeito', data: rangeInsatis, backgroundColor: '#ef4444' }
+        ]
+      },
+      options: {
+        responsive: true,
+        scales: { x: { stacked: true }, y: { stacked: true } }
+      }
+    });
+
+    const rangeTotalCtx = document.getElementById('rangeTotalChart');
+    new Chart(rangeTotalCtx, {
+      type: 'line',
+      data: {
+        labels: rangeLabels,
+        datasets: [{
+          label: 'Total no periodo',
+          data: rangeTotals,
+          borderColor: '#a855f7',
+          backgroundColor: 'rgba(168, 85, 247, 0.12)',
+          fill: true,
+          tension: 0.3
+        }]
+      },
+      options: { responsive: true }
+    });
+
+    const monthCtx = document.getElementById('monthChart');
+    new Chart(monthCtx, {
+      type: 'line',
+      data: {
+        labels: monthLabels,
+        datasets: [
+          {
+            label: 'Mes atual',
+            data: monthValues,
+            borderColor: '#22c55e',
+            backgroundColor: 'rgba(34, 197, 94, 0.12)',
+            fill: true,
+            tension: 0.3
+          },
+          {
+            label: 'Mes anterior',
+            data: prevMonthValues,
+            borderColor: '#f472b6',
+            backgroundColor: 'rgba(244, 114, 182, 0.10)',
+            fill: true,
+            tension: 0.3
+          }
+        ]
+      },
+      options: { responsive: true }
+    });
+
+    const monthBarCtx = document.getElementById('monthBarChart');
+    new Chart(monthBarCtx, {
+      type: 'bar',
+      data: {
+        labels: monthLabels,
+        datasets: [
+          { label: 'Mes atual', data: monthValues, backgroundColor: 'rgba(34, 197, 94, 0.55)' },
+          { label: 'Mes anterior', data: prevMonthValues, backgroundColor: 'rgba(244, 114, 182, 0.55)' }
+        ]
+      },
+      options: { responsive: true }
+    });
   </script>
+  <script src="/static/js/page_tutorial.js"></script>
+  <script src="/static/js/pwa.js"></script>
 </body>
 </html>

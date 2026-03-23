@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0f766e">
+  <title>Reset - LembreMe</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="alarm-page">
+  <header class="topbar">
+    <div class="brand">
+      <p class="eyebrow">LembreMe</p>
+      <h1>Reset de Atualização</h1>
+      <p class="sub">Isto limpa o cache e o Service Worker para deixar o Admin atualizar.</p>
+      <p id="status" class="hint">A limpar...</p>
+      <div class="kiosk-actions">
+        <a class="ghost-btn" href="/">Voltar ao kiosk</a>
+        <a class="ghost-btn" href="/admin_2026/login">Ir para login</a>
+      </div>
+    </div>
+  </header>
+
+  <script>
+    (async function () {
+      const statusEl = document.getElementById("status");
+      function setStatus(t) { if (statusEl) statusEl.textContent = t; }
+
+      try {
+        // Clear CacheStorage
+        if ("caches" in window) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map(k => caches.delete(k)));
+        }
+
+        // Unregister Service Workers
+        if ("serviceWorker" in navigator) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map(r => r.unregister()));
+        }
+
+        try { localStorage.clear(); } catch (e) {}
+        try { sessionStorage.clear(); } catch (e) {}
+
+        setStatus("Feito. Agora abre o Admin: /admin_2026/login");
+      } catch (e) {
+        setStatus("Falhou o reset automático. Diz-me o erro da consola.");
+      }
+    })();
+  </script>
+  <script src="/static/js/page_tutorial.js"></script>
+</body>
+</html>
+
+

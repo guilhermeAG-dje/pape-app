@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <meta name="theme-color" content="#0f766e">
+  <title>Admin - PIN</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="stylesheet" href="/static/css/admin.css">
+</head>
+<body class="admin-page">
+  <main class="admin-container admin-login">
+    <div class="login-hero">
+      <div class="brand-mark" aria-hidden="true">LM</div>
+      <div>
+        <h1 id="admin-pin-title">Área de Administração</h1>
+        <p class="muted">Introduza o PIN para configurar alarmes.</p>
+      </div>
+    </div>
+    {% if error %}
+    <div id="pin-error" class="login-error" role="alert" aria-live="assertive">{{ error }}</div>
+    {% endif %}
+    <form method="POST" action="{{ url_for('admin_pin_login') }}" class="login-box" aria-labelledby="admin-pin-title">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <p id="pin-help" class="muted small">Insira o PIN configurado para acesso administrativo rápido.</p>
+      <label for="pin">PIN</label>
+      <input id="pin" type="password" name="pin" inputmode="numeric" autocomplete="one-time-code" placeholder="PIN" minlength="4" maxlength="12" required autofocus {% if error %}aria-invalid="true" aria-describedby="pin-help pin-error"{% else %}aria-describedby="pin-help"{% endif %}>
+      <div class="login-actions">
+        <button type="submit" data-submit-label="Entrar">Entrar</button>
+        <a class="btn-outline" href="/">Voltar ao kiosk</a>
+      </div>
+    </form>
+    <p class="muted small">Acesso apenas a utilizadores autorizados.</p>
+  </main>
+  <script>
+    (function () {
+      const form = document.querySelector('.login-box');
+      if (!form) return;
+      form.addEventListener('submit', function () {
+        const submitBtn = form.querySelector('button[type="submit"]');
+        if (!submitBtn) return;
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'A validar...';
+      });
+    })();
+  </script>
+  <script src="/static/js/pwa.js"></script>
+  <script src="/static/js/page_tutorial.js"></script>
+</body>
+</html>
+
+

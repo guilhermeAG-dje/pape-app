@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <meta name="theme-color" content="#0f766e">
+  <title>QR Code</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="stylesheet" href="/static/css/admin.css">
+</head>
+<body class="admin-page">
+  <main class="admin-container">
+    <div class="qr-card">
+      <h1>QR Code do Formulário</h1>
+      <p>Aponta a câmara para abrir o formulário público.</p>
+      <img src="/admin_2026/qr.png" alt="QR Code" class="qr-img">
+      <p class="muted">{{ target_url }}</p>
+      <a class="btn-outline" href="/admin_2026">Voltar ao painel</a>
+    </div>
+  </main>
+  <script src="/static/js/pwa.js"></script>
+  <script src="/static/js/page_tutorial.js"></script>
+</body>
+</html>
+
+

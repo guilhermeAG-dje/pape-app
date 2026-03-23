@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <meta name="theme-color" content="#0f766e">
+  <title>Admin - Monitorizacao (LembreMe)</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="stylesheet" href="/static/css/admin.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="admin-page" data-admin-page="dashboard">
+  <header class="admin-header">
+    <div class="admin-brand">
+      <div class="admin-logo-fallback">LM</div>
+    </div>
+    <div>
+      <h1>Monitorizacao</h1>
+      <p class="muted">Acompanhar tomas neste dispositivo</p>
+    </div>
+    <div class="admin-actions">
+      <a class="btn-outline" href="/">Abrir kiosk</a>
+      <a class="btn-outline" href="/admin_2026/reminders">Editar alarmes</a>
+      <a class="btn-outline" href="/admin_2026/logout">Sair</a>
+    </div>
+  </header>
+
+  <main class="admin-container">
+    <section class="admin-shell">
+      <div class="shell-tabs" role="navigation" aria-label="Navegacao administrativa">
+        <a class="shell-tab" href="/admin_2026">Avaliacao</a>
+        <a class="shell-tab is-active" href="/admin_2026/dashboard">Monitorizacao</a>
+        <a class="shell-tab" href="/admin_2026/reminders">Alarmes</a>
+      </div>
+
+      <div class="context-grid">
+        <article class="context-card patient-switch-card">
+          <div>
+            <div class="context-kicker">Contexto ativo</div>
+            <h3>Utente em acompanhamento</h3>
+          </div>
+          <div class="patient-switcher-row">
+            <label class="sr-only" for="admin-patient-select">Selecionar utente</label>
+            <select id="admin-patient-select" class="input-base select-base" data-patient-select>
+              <option value="">A carregar utentes...</option>
+            </select>
+            <button type="button" class="btn-outline" data-patient-refresh>Atualizar lista</button>
+          </div>
+          <p class="muted small" data-patient-caption>Escolhe um utente para sincronizar esta vista.</p>
+          <div class="inline-actions">
+            <a class="btn-primary" href="/admin_2026/dashboard" data-patient-nav="dashboard">Ver monitorizacao</a>
+            <a class="btn-outline" href="/admin_2026/reminders" data-patient-nav="reminders">Editar alarmes</a>
+            <a class="btn-outline" href="/admin_2026/users/" data-patient-detail>Ficha do utente</a>
+          </div>
+        </article>
+
+        <article class="context-card">
+          <div class="context-kicker">Ligacoes rapidas</div>
+          <h3>Fluxo recomendado</h3>
+          <div class="mini-stats">
+            <div class="mini-stat">
+              <strong>1</strong>
+              <span>Escolher o utente</span>
+            </div>
+            <div class="mini-stat">
+              <strong>2</strong>
+              <span>Ver falhas do dia</span>
+            </div>
+            <div class="mini-stat">
+              <strong>3</strong>
+              <span>Ajustar alarmes se necessario</span>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="filters">
+      <div class="filter-box">
+        <label>Utente deste browser</label>
+        <p class="muted" id="patient-current" aria-live="polite">A reconhecer...</p>
+      </div>
+      <div class="filter-box">
+        <label>Atualizacao</label>
+        <button type="button" class="btn-outline" id="dashboard-refresh">Atualizar agora</button>
+        <p class="muted small" id="dashboard-updated" aria-live="polite">Ultima atualizacao: --</p>
+      </div>
+    </section>
+
+    <section class="cards">
+      <div class="card">
+        <h3>Adesao Hoje</h3>
+        <p class="big" id="adherence-today">0%</p>
+        <span class="muted" id="today-detail">0/0</span>
+      </div>
+      <div class="card">
+        <h3>Alarmes Ativos</h3>
+        <p class="big" id="active-reminders">0</p>
+        <span class="muted">Neste dispositivo</span>
+      </div>
+      <div class="card">
+        <h3>Tomas Hoje</h3>
+        <p class="big" id="taken-today">0</p>
+        <span class="muted">Confirmadas</span>
+      </div>
+      <div class="card">
+        <h3>Em Falta Hoje</h3>
+        <p class="big" id="missed-today">0</p>
+        <span class="muted">Apos a hora</span>
+      </div>
+      <div class="card">
+        <h3>Stock Baixo</h3>
+        <p class="big" id="stock-low-count">0</p>
+        <span class="muted">Abaixo do limite</span>
+      </div>
+      <div class="card">
+        <h3>Stock Esgotado</h3>
+        <p class="big" id="stock-zero-count">0</p>
+        <span class="muted">Precisa reposicao</span>
+      </div>
+    </section>
+
+    <section class="charts">
+      <div class="chart-card full">
+        <h3>Adesao (ultimos 7 dias)</h3>
+        <canvas id="weekChart"></canvas>
+      </div>
+    </section>
+
+    <section class="chart-card full">
+      <div class="panel-header-row">
+        <h3>Agenda de hoje</h3>
+        <span class="list-count-badge" role="status" aria-live="polite"><span id="today-visible">0</span> / <span id="today-total">0</span></span>
+      </div>
+      <div class="list-tools">
+        <label for="today-filter" class="sr-only">Filtrar agenda</label>
+        <input id="today-filter" class="input-base list-filter-input" type="search" placeholder="Filtrar por medicamento, dose ou hora" autocomplete="off" />
+        <button type="button" class="btn-outline list-clear" data-clear-target="today-filter">Limpar</button>
+      </div>
+      <div class="list-chips">
+        <button type="button" class="chip" data-today-status="upcoming" aria-pressed="false">Por vir</button>
+        <button type="button" class="chip" data-today-status="taken" aria-pressed="false">Tomou</button>
+        <button type="button" class="chip" data-today-status="missed" aria-pressed="false">Em falta</button>
+      </div>
+      <p class="muted small list-hint">Atalho: / foca o filtro. Esc limpa o campo.</p>
+      <div class="table-wrap">
+        <div id="today-table" aria-live="polite"></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/js/admin_shell.js"></script>
+  <script src="/static/js/admin_dashboard.js"></script>
+  <script src="/static/js/page_tutorial.js"></script>
+  <script src="/static/js/pwa.js"></script>
+</body>
+</html>

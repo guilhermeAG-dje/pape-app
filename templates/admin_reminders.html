@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <meta name="theme-color" content="#0f766e">
+  <title>Admin - Alarmes (LembreMe)</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="stylesheet" href="/static/css/admin.css">
+</head>
+<body class="admin-page" data-admin-page="reminders">
+  <header class="admin-header">
+    <div class="admin-brand">
+      <div class="admin-logo-fallback">LM</div>
+    </div>
+    <div>
+      <h1>Alarmes de Medicacao</h1>
+      <p class="muted">Configurar alarmes neste dispositivo.</p>
+    </div>
+    <div class="admin-actions">
+      <a class="btn-outline" href="/">Voltar ao kiosk</a>
+      <a class="btn-outline" href="/admin_2026/dashboard">Monitorizacao</a>
+      <a class="btn-outline" href="/admin_2026/logout">Sair</a>
+    </div>
+  </header>
+
+  <main class="admin-container">
+    <section class="admin-shell">
+      <div class="shell-tabs" role="navigation" aria-label="Navegacao administrativa">
+        <a class="shell-tab" href="/admin_2026">Avaliacao</a>
+        <a class="shell-tab" href="/admin_2026/dashboard">Monitorizacao</a>
+        <a class="shell-tab is-active" href="/admin_2026/reminders">Alarmes</a>
+      </div>
+
+      <div class="context-grid">
+        <article class="context-card patient-switch-card">
+          <div>
+            <div class="context-kicker">Contexto ativo</div>
+            <h3>Utente e relacoes</h3>
+          </div>
+          <div class="patient-switcher-row">
+            <label class="sr-only" for="admin-patient-select">Selecionar utente</label>
+            <select id="admin-patient-select" class="input-base select-base" data-patient-select>
+              <option value="">A carregar utentes...</option>
+            </select>
+            <button type="button" class="btn-outline" data-patient-refresh>Atualizar lista</button>
+          </div>
+          <p class="muted small" data-patient-caption>Todos os alarmes mostrados abaixo pertencem ao utente selecionado.</p>
+          <div class="inline-actions">
+            <a class="btn-primary" href="/admin_2026/reminders" data-patient-nav="reminders">Ver alarmes</a>
+            <a class="btn-outline" href="/admin_2026/dashboard" data-patient-nav="dashboard">Ver monitorizacao</a>
+            <a class="btn-outline" href="/admin_2026/users/" data-patient-detail>Ficha do utente</a>
+          </div>
+        </article>
+
+        <article class="context-card">
+          <div class="context-kicker">Ligacoes rapidas</div>
+          <h3>Relacao entre paginas</h3>
+          <div class="mini-stats">
+            <div class="mini-stat">
+              <strong>A</strong>
+              <span>Alarmes definem o plano</span>
+            </div>
+            <div class="mini-stat">
+              <strong>B</strong>
+              <span>Monitorizacao mostra execucao</span>
+            </div>
+            <div class="mini-stat">
+              <strong>C</strong>
+              <span>Ficha resume historico</span>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="cards">
+      <div class="card alt">
+        <h3>Adicionar alarme</h3>
+        <form id="reminder-form" class="form-grid">
+          <input name="medicine_name" type="text" placeholder="Medicamento (ex: Aspirina)" aria-label="Medicamento" maxlength="120" required />
+          <input name="dose" type="text" placeholder="Dose (ex: 1 comprimido)" aria-label="Dose" maxlength="80" required />
+          <input name="time_hhmm" type="time" aria-label="Hora principal" required />
+          <div class="times-extra-group" data-times-extra-group></div>
+          <button type="button" class="btn-outline" data-times-extra-add>Adicionar hora</button>
+          <input name="stock_count" type="number" min="0" step="1" placeholder="Stock (ex: 30) [opcional]" aria-label="Stock" />
+          <input name="stock_low_threshold" type="number" min="0" step="1" placeholder="Alerta stock baixo (ex: 3) [opcional]" aria-label="Alerta de stock baixo" />
+          <div class="days-admin">
+            <label><input type="checkbox" value="1" checked> Seg</label>
+            <label><input type="checkbox" value="2" checked> Ter</label>
+            <label><input type="checkbox" value="3" checked> Qua</label>
+            <label><input type="checkbox" value="4" checked> Qui</label>
+            <label><input type="checkbox" value="5" checked> Sex</label>
+            <label><input type="checkbox" value="6" checked> Sab</label>
+            <label><input type="checkbox" value="0" checked> Dom</label>
+          </div>
+          <div class="template-row">
+            <button type="button" class="btn-outline" data-template="manha">Template: Manha</button>
+            <button type="button" class="btn-outline" data-template="dia">Template: Dia</button>
+            <button type="button" class="btn-outline" data-template="noite">Template: Noite</button>
+          </div>
+          <button type="submit" class="btn-primary">Guardar</button>
+        </form>
+        <div id="form-message" class="status" role="status" aria-live="polite" style="display:none;"></div>
+      </div>
+
+      <div class="card">
+        <h3>Definicoes</h3>
+        <form id="config-form" class="form-grid">
+          <input name="default_patient_name" type="text" placeholder="Nome mostrado no kiosk (ex: D. Maria)" aria-label="Nome mostrado no kiosk" />
+          <input name="caregiver_email" type="email" placeholder="Email do cuidador (opcional)" aria-label="Email do cuidador" />
+          <input name="escalation_minutes" type="number" min="1" step="1" placeholder="Escalacao (min) (ex: 10)" aria-label="Escalacao em minutos" />
+          <input name="stock_low_default" type="number" min="0" step="1" placeholder="Stock baixo padrao (ex: 3)" aria-label="Stock baixo padrao" />
+          <input name="kiosk_admin_pin" type="text" placeholder="PIN do kiosk para admin (opcional)" aria-label="PIN do kiosk para admin" />
+          <button type="submit" class="btn-primary">Guardar definicoes</button>
+        </form>
+        <div id="config-message" class="status" role="status" aria-live="polite" style="display:none;"></div>
+      </div>
+
+      <div class="card">
+        <h3>Utente deste browser</h3>
+        <p id="patient-current" class="big">A reconhecer...</p>
+        <p class="muted small">ID: <span id="patient-id">--</span></p>
+        <p class="muted small">Este admin usa os mesmos dados do kiosk neste navegador.</p>
+      </div>
+    </section>
+
+    <section class="chart-card full">
+      <div class="panel-header-row">
+        <h3>Lista de alarmes</h3>
+        <span class="list-count-badge" role="status" aria-live="polite"><span id="reminders-visible">0</span> / <span id="reminders-total">0</span></span>
+      </div>
+      <div class="list-tools">
+        <label for="reminders-filter" class="sr-only">Filtrar alarmes</label>
+        <input id="reminders-filter" class="input-base list-filter-input" type="search" placeholder="Filtrar por medicamento, dose, hora ou dias" autocomplete="off" />
+        <button type="button" class="btn-outline list-clear" data-clear-target="reminders-filter">Limpar</button>
+      </div>
+      <div class="list-chips">
+        <button type="button" class="chip" id="reminders-active-toggle" aria-pressed="false">Ativos</button>
+        <button type="button" class="chip" data-stock-filter="low" aria-pressed="false">Stock baixo</button>
+        <button type="button" class="chip" data-stock-filter="zero" aria-pressed="false">Sem stock</button>
+      </div>
+      <p class="muted small list-hint">Atalho: / foca o filtro. Esc limpa o campo.</p>
+      <div id="reminders-list"></div>
+      <p id="reminders-empty" class="empty-state" hidden>Sem alarmes registados.</p>
+      <div id="reminders-empty-action" class="empty-action" hidden>
+        <button type="button" class="btn-outline" id="reminders-empty-focus">Adicionar alarme</button>
+      </div>
+    </section>
+
+    <section class="chart-card full">
+      <h3>Importar CSV</h3>
+      <p class="muted">Colunas: medicine_name, dose, times (ex: 08:00;14:00), weekdays (ex: 1,2,3,4,5), stock_count, stock_low_threshold. patient_name e opcional.</p>
+      <form id="csv-form" class="form-grid" enctype="multipart/form-data">
+        <input name="file" type="file" accept=".csv,text/csv" aria-label="Ficheiro CSV" required />
+        <button type="submit" class="btn-primary">Importar</button>
+      </form>
+      <div id="csv-message" class="status" role="status" aria-live="polite" style="display:none;"></div>
+    </section>
+  </main>
+
+  <script src="/static/js/admin_shell.js"></script>
+  <script src="/static/js/admin_reminders.js"></script>
+  <script src="/static/js/page_tutorial.js"></script>
+  <script src="/static/js/pwa.js"></script>
+</body>
+</html>

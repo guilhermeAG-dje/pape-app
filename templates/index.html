@@ -1,74 +1,175 @@
 <!DOCTYPE html>
-<html lang="pt">
+<html lang="pt-PT">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#4f46e5">
-  <meta name="description" content="Avalie a sua experi?ncia de atendimento">
-  <title>Avalia??o de Satisfa??o</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <meta name="theme-color" content="#0f766e">
+  <meta name="description" content="LembreMe - Alarme de medicação para idosos">
+  <title>LembreMe - Alarme de Medicação</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="stylesheet" href="/static/css/style.css">
 </head>
-<body class="public-page">
-  <main class="container" role="main">
-    <header class="header-public">
-      <h1 id="page-title">Como foi o seu atendimento?</h1>
-      <p class="subtitle">Toque no bot?o que melhor representa a sua experi?ncia</p>
-    </header>
-
-    <div class="buttons" id="buttons" role="group" aria-labelledby="page-title">
-      <button class="btn muito-satisfeito" data-grau="muito_satisfeito" onclick="registar('muito_satisfeito')" aria-label="Muito Satisfeito" tabindex="0">
-        <span class="emoji" aria-hidden="true">&#128513;</span>
-        <span class="label">Muito Satisfeito</span>
-      </button>
-
-      <button class="btn satisfeito" data-grau="satisfeito" onclick="registar('satisfeito')" aria-label="Satisfeito" tabindex="0">
-        <span class="emoji" aria-hidden="true">&#128578;</span>
-        <span class="label">Satisfeito</span>
-      </button>
-
-      <button class="btn insatisfeito" data-grau="insatisfeito" onclick="registar('insatisfeito')" aria-label="Insatisfeito" tabindex="0">
-        <span class="emoji" aria-hidden="true">&#128543;</span>
-        <span class="label">Insatisfeito</span>
-      </button>
-    </div>
-
-    <div class="mensagem" id="mensagem" style="display: none;" role="alert" aria-live="polite">
-      <span class="emoji-grande" aria-hidden="true">&#10004;</span>
-      <h2>Obrigado!</h2>
-      <p>A sua avalia??o foi registada com sucesso.</p>
-      <div class="countdown" id="countdown">
-        <span class="countdown-text">Nova avalia??o dispon?vel em</span>
-        <span class="countdown-timer" id="timer">5</span>
-        <span class="countdown-text">segundos</span>
+<body class="alarm-page">
+  <header class="topbar">
+    <div class="brand">
+      <p class="eyebrow">LembreMe</p>
+      <h1 id="kiosk-title">Hora da Medicação</h1>
+      <p class="sub">Cada utente configura os seus medicamentos aqui. O Admin serve para acompanhar com gráficos.</p>
+      <div class="kiosk-actions">
+        <button id="install-app-btn" class="ghost-btn" type="button" hidden>Instalar app</button>
       </div>
+      <p id="kiosk-message" class="hint" aria-live="polite"></p>
     </div>
+    <div class="clock-card">
+      <p>Hora atual</p>
+      <div id="live-clock">00:00:00</div>
+    </div>
+  </header>
 
-    <div class="loading" id="loading" style="display: none;" role="status" aria-live="polite">
-      <div class="spinner"></div>
-      <p>A registar avalia??o...</p>
-    </div>
+  <main class="layout">
+    <section class="panel patient-panel">
+      <h2>Utente</h2>
+      <div class="patient-row">
+        <div class="patient-identification">
+          <div class="patient-avatar" aria-hidden="true">U</div>
+          <div>
+            <p class="hint" style="margin:0;">Selecionado</p>
+            <div id="patient-current" class="patient-current">-</div>
+          </div>
+        </div>
+      </div>
+      <div class="patient-meta">
+        <span id="patient-age">Idade: --</span>
+        <span id="patient-sns">N.º SNS: --</span>
+      </div>
+    </section>
+
+    <section class="panel config-panel">
+      <h2>Adicionar Medicamento</h2>
+      <form id="kiosk-reminder-form" class="kiosk-form">
+        <label>Medicamento</label>
+        <input name="medicine_name" type="text" placeholder="Ex: Aspirina" required>
+        <label>Dose</label>
+        <input name="dose" type="text" placeholder="Ex: 1 comprimido" required>
+        <label>Hora (principal)</label>
+        <input name="time_hhmm" type="time" required>
+        <label>Outras horas (opcional)</label>
+        <div id="times-extra-list" class="times-extra-list"></div>
+        <button id="add-time-extra" class="ghost-btn" type="button">Adicionar hora</button>
+        <label>Stock (opcional)</label>
+        <input name="stock_count" type="number" min="0" step="1" placeholder="Ex: 30">
+        <button class="primary-btn" type="submit">Guardar</button>
+      </form>
+      <p id="kiosk-form-msg" class="hint" aria-live="polite"></p>
+    </section>
+
+    <section class="panel reminders-panel">
+      <h2>Meus Medicamentos</h2>
+      <div id="reminders-list" class="reminders-list"></div>
+    </section>
+
+    <section class="panel next-alarm">
+      <h2>Próximo Alarme</h2>
+      <p id="next-alarm-text" aria-live="polite">Sem alarmes configurados.</p>
+      <div class="next-actions">
+        <button id="btn-confirm-next" class="primary-btn" type="button">Confirmar toma</button>
+        <button id="btn-snooze-next" class="secondary-btn" type="button">Adiar 10 min</button>
+      </div>
+      <div class="stats">
+        <div class="stat">
+          <span>Alarmes ativos</span>
+          <strong id="active-count">0</strong>
+        </div>
+        <div class="stat">
+          <span>Tomas confirmadas hoje</span>
+          <strong id="taken-today">0</strong>
+        </div>
+        <div class="stat">
+          <span>Adesão hoje</span>
+          <strong id="adherence-today">0%</strong>
+        </div>
+        <div class="stat">
+          <span>Em falta hoje</span>
+          <strong id="missed-today">0</strong>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel alerts-panel">
+      <h2>Alertas de stock</h2>
+      <div id="stock-alerts" class="alerts-list">
+        <div class="alert-item warn">
+          <div>
+            <strong>Sem alertas de stock.</strong>
+            <p class="hint">Quando um medicamento estiver a acabar, aparece aqui.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel today-panel">
+      <h2>Hoje</h2>
+      <div id="today-list" class="today-list" aria-live="polite"></div>
+      <div class="kiosk-foot">
+        <p class="hint">Toque e confirme cada toma quando tocar o alarme.</p>
+      </div>
+    </section>
+
+    <section class="panel history-panel">
+      <h2>Histórico rápido</h2>
+      <div id="history-list" class="history-list">
+        <div class="history-item">
+          <div class="history-title">Sem histórico ainda</div>
+          <div class="history-meta">As últimas 3 confirmações aparecem aqui.</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel week-panel">
+      <h2>Últimos 7 dias</h2>
+      <div id="week-list" class="week-list"></div>
+    </section>
+
+    <section class="panel caregiver-panel">
+      <h2>Modo cuidador</h2>
+      <p class="hint">Partilha rápida com familiares ou profissionais de saúde.</p>
+      <div class="kiosk-actions">
+        <button id="btn-caregiver-summary" class="primary-btn" type="button">Enviar resumo</button>
+        <button id="btn-caregiver-report" class="ghost-btn" type="button">Ver relatório</button>
+      </div>
+    </section>
+
+    <section class="panel help-panel">
+      <h2>Ajuda rápida</h2>
+      <ol class="help-steps">
+        <li>Este navegador guarda o utente automaticamente.</li>
+        <li>Confirma a hora da toma antes de guardar.</li>
+        <li>Quando o alarme tocar, toca em "Confirmar toma".</li>
+        <li>Se precisares, adia a toma ou chama o cuidador.</li>
+      </ol>
+    </section>
   </main>
 
-  <footer class="footer-public">
-    <div class="tech-badges">
-      <span class="tech-badge python">Python 3</span>
-      <span class="tech-badge flask">Flask</span>
-      <span class="tech-badge sqlite">SQLite</span>
-      <span class="tech-badge html">HTML5/CSS3</span>
-      <span class="tech-badge js">JavaScript</span>
-      <span class="tech-badge chart">Chart.js</span>
-      <span class="tech-badge github">GitHub</span>
+  <div id="alarm-modal" class="alarm-modal hidden" role="alertdialog" aria-modal="true">
+    <div class="alarm-box">
+      <p class="alarm-tag">ALERTA DE TOMA</p>
+      <h3 id="alarm-title">Hora da medicação</h3>
+      <p id="alarm-detail"></p>
+      <div class="alarm-actions">
+        <button id="btn-confirm" class="primary-btn">Confirmar toma</button>
+        <button id="btn-snooze" class="secondary-btn">Lembrar em 5 min</button>
+        <button id="btn-caregiver" class="ghost-btn" style="display:none;">Chamar cuidador</button>
+        <button id="btn-close" class="ghost-btn">Fechar</button>
+      </div>
     </div>
-    <p>Sistema de Avalia??o de Satisfa??o &copy; 2026</p>
-    <a href="/admin_2026/login" class="admin-link" aria-label="?rea de Administra??o">
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-      ?rea de Administra??o
-    </a>
-  </footer>
+  </div>
 
-  <script>
-    const TIMEOUT_SEGUNDOS = 5;
-  </script>
+  <script src="/static/js/pwa.js"></script>
   <script src="/static/js/script.js"></script>
+  <script src="/static/js/page_tutorial.js"></script>
 </body>
 </html>

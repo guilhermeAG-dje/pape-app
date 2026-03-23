@@ -1,71 +1,365 @@
-<!DOCTYPE html>
-<html lang="pt">
+﻿ <!DOCTYPE html
+<html lang="pt-PT">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Admin ? Utilizador</title>
-  <link rel="stylesheet" href="/style.css" />
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <meta name="theme-color" content="#0f766e">
+  <title>Admin - Utente</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="stylesheet" href="/static/css/admin.css" />
 </head>
-<body>
-  <header>
-    <div class="brand">
-      <div class="logo">LM</div>
-      <div>
-        <h1>{{ user.email }}</h1>
-        <p class="subtitle">Detalhes do utilizador</p>
-      </div>
+<body class="admin-page admin-user-page" data-patient-id="{{ patient.id }}" data-admin-page="user">
+  <header class="admin-header">
+    <div class="admin-brand">
+      <div class="admin-logo-fallback">LM</div>
     </div>
-    <a class="ghost-btn" href="/admin_2026">Voltar</a>
+    <div class="user-title-block">
+      <div class="user-title-row">
+        <h1>{{ patient.display_name }}</h1>
+        <button id="copy-patient" type="button" class="btn-outline btn-inline" data-copy-text="{{ patient.display_name }}" data-copy-label="Copiar nome">Copiar nome</button>
+      </div>
+      <p class="muted">Consulta do utente (modo leitura)</p>
+    </div>
+    <div class="admin-actions">
+      <a class="btn-outline" href="/admin_2026/reminders">Alarmes</a>
+      <a class="btn-outline" href="/admin_2026/dashboard">Monitorizacao</a>
+      <a class="btn-outline" href="/admin_2026/logout">Sair</a>
+    </div>
   </header>
 
-  <main>
-    {% with messages = get_flashed_messages() %}
-      {% if messages %}
-        <p class="muted">{{ messages[0] }}</p>
+  <main class="admin-container">
+    {% set meds_count = meds | length %}
+    {% set tomas_count = tomas | length %}
+    {% set latest_toma = tomas | first %}
+    {% set adherence_pct = ((tomas_stats.on_time / tomas_stats.total) * 100) | round(0) if tomas_stats.total else 0 %}
+    {% set patient_initials = (patient.display_name[:2] | upper) if patient.display_name else 'UT' %}
+    {% set has_attention = tomas_stats.missed or tomas_stats.late %}
+
+    {% with flashes = get_flashed_messages(with_categories=true) %}
+      {% if flashes %}
+        {% set category = flashes[0][0] %}
+        {% set message = flashes[0][1] %}
+        <div class="status {% if category in ['error', 'danger'] %}error{% elif category in ['success', 'ok'] %}success{% endif %}" role="status" aria-live="polite">
+          {{ message }}
+        </div>
       {% endif %}
     {% endwith %}
 
-    <section class="grid">
-      <div class="card">
-        <div class="card-header"><h2>Reset Password</h2></div>
-        <form method="post" action="/admin_2026/users/{{ user.id }}/reset">
-          <div class="field">
-            <label>Nova palavra?passe</label>
-            <input name="new_password" type="text" placeholder="Nova palavra-passe" required />
-          </div>
-          <button class="primary-btn" type="submit">Atualizar</button>
-        </form>
+    <section class="admin-shell">
+      <div class="shell-tabs" role="navigation" aria-label="Navegacao administrativa">
+        <a class="shell-tab" href="/admin_2026">Avaliacao</a>
+        <a class="shell-tab" href="/admin_2026/dashboard">Monitorizacao</a>
+        <a class="shell-tab" href="/admin_2026/reminders">Alarmes</a>
+        <a class="shell-tab is-active" href="/admin_2026/users/{{ patient.id }}">Ficha do utente</a>
       </div>
 
-      <div class="card">
-        <div class="card-header"><h2>Medicamentos</h2></div>
-        <div class="tomas-list">
-          {% for m in meds %}
-          <div class="toma-item">
-            <div>
-              <div class="med-title">{{ m.nome }}</div>
-              <div class="med-meta">{{ m.dose }} ? {{ m.hora }}{% if m.data %} ? {{ m.data }}{% endif %}</div>
+      <div class="context-grid">
+        <article class="context-card patient-switch-card">
+          <div>
+            <div class="context-kicker">Relacoes</div>
+            <h3>Mudar de utente sem perder contexto</h3>
+          </div>
+          <div class="patient-switcher-row">
+            <label class="sr-only" for="admin-patient-select">Selecionar utente</label>
+            <select id="admin-patient-select" class="input-base select-base" data-patient-select data-selected-patient="{{ patient.id }}">
+              <option value="{{ patient.id }}">{{ patient.display_name }}</option>
+            </select>
+            <button type="button" class="btn-outline" data-patient-refresh>Atualizar lista</button>
+          </div>
+          <p class="muted small" data-patient-caption>Ao trocar de utente, os atalhos abaixo acompanham imediatamente a selecao.</p>
+          <div class="inline-actions">
+            <a class="btn-primary" href="/admin_2026/users/{{ patient.id }}" data-patient-detail>Ficha do utente</a>
+            <a class="btn-outline" href="/admin_2026/dashboard" data-patient-nav="dashboard">Monitorizacao</a>
+            <a class="btn-outline" href="/admin_2026/reminders" data-patient-nav="reminders">Alarmes</a>
+          </div>
+        </article>
+
+        <article class="context-card">
+          <div class="context-kicker">Fluxo</div>
+          <h3>Do plano ao historico</h3>
+          <div class="mini-stats">
+            <div class="mini-stat">
+              <strong>Plano</strong>
+              <span>Ver medicacao ativa</span>
+            </div>
+            <div class="mini-stat">
+              <strong>Execucao</strong>
+              <span>Confirmar tomas e atrasos</span>
+            </div>
+            <div class="mini-stat">
+              <strong>Acao</strong>
+              <span>Ajustar alarmes quando preciso</span>
             </div>
           </div>
-          {% endfor %}
+        </article>
+      </div>
+    </section>
+
+    <section class="user-hero">
+      <article class="hero-main card alt">
+        <div class="hero-main-top">
+          <div class="hero-avatar" aria-hidden="true">{{ patient_initials }}</div>
+          <div class="hero-copy">
+            <div class="hero-kicker">Resumo do utente</div>
+            <h2>{{ patient.display_name }}</h2>
+            <p class="muted">Vista rapida para acompanhar terapias, adesao e sinais de risco recentes.</p>
+          </div>
+          <div class="hero-badge {% if has_attention %}warn{% else %}ok{% endif %}">
+            {% if has_attention %}Requer atencao{% else %}Estavel{% endif %}
+          </div>
+        </div>
+
+        <div class="hero-highlights">
+          <div class="hero-highlight">
+            <span class="hero-highlight-label">Adesao recente</span>
+            <strong>{{ adherence_pct }}%</strong>
+            <span class="muted small">Com base no historico disponivel</span>
+          </div>
+          <div class="hero-highlight">
+            <span class="hero-highlight-label">Plano ativo</span>
+            <strong>{{ meds_count }} medicamento{% if meds_count != 1 %}s{% endif %}</strong>
+            <span class="muted small">Horarios e lembretes associados</span>
+          </div>
+          <div class="hero-highlight">
+            <span class="hero-highlight-label">Ocorrencias</span>
+            <strong>{{ tomas_stats.late + tomas_stats.missed }}</strong>
+            <span class="muted small">Atrasos ou falhas recentes</span>
+          </div>
+        </div>
+
+        <div class="hero-actions">
+          <a class="btn-primary" href="#tomas-panel">Ver historico</a>
+          <a class="btn-outline" href="#meds-panel">Ver medicacao</a>
+          <a class="btn-outline" href="/admin_2026/users/{{ patient.id }}/history.csv">Exportar CSV</a>
+        </div>
+      </article>
+
+      <aside class="hero-side panel">
+        <div class="panel-header-row">
+          <h3>Ultimo registo</h3>
+          {% if latest_toma %}
+          <span class="list-count-badge">#{{ tomas_count }}</span>
+          {% endif %}
+        </div>
+        {% if latest_toma %}
+        {% set latest_is_late = latest_toma.late_minutes and latest_toma.late_minutes > 0 %}
+        {% set latest_is_missed = latest_toma.status and latest_toma.status != 'taken' %}
+        {% set latest_is_on_time = latest_toma.status == 'taken' and (not latest_toma.late_minutes or latest_toma.late_minutes <= 0) %}
+        <div class="latest-event">
+          <div class="latest-event-title-row">
+            <div>
+              <div class="admin-list-title">{{ latest_toma.nome }}</div>
+              <div class="admin-list-meta">{{ latest_toma.data }} | {{ latest_toma.hora }}</div>
+            </div>
+            <span class="status-pill {% if latest_is_missed %}missed{% elif latest_is_late %}late{% else %}ok{% endif %}">
+              {% if latest_is_missed %}Em falta{% elif latest_is_late %}Atraso{% elif latest_is_on_time %}Em dia{% else %}Registado{% endif %}
+            </span>
+          </div>
+          <div class="admin-list-tags">
+            <span>{{ latest_toma.dose }}</span>
+            {% if latest_toma.late_minutes and latest_toma.late_minutes > 0 %}<span class="tag tag-warning">+{{ latest_toma.late_minutes }} min</span>{% endif %}
+            {% if latest_toma.nota %}<span>{{ latest_toma.nota }}</span>{% endif %}
+          </div>
+        </div>
+        {% else %}
+        <p class="muted small">Ainda nao ha tomas registadas para este utente.</p>
+        {% endif %}
+
+        <div class="insight-stack">
+          <div class="insight-row">
+            <span class="muted small">ID</span>
+            <strong>#{{ patient.id }}</strong>
+          </div>
+          <div class="insight-row">
+            <span class="muted small">Criado em</span>
+            <strong>{% if patient.created_at %}{{ patient.created_at.strftime('%Y-%m-%d %H:%M') }}{% else %}—{% endif %}</strong>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="cards user-overview">
+      <article class="card">
+        <div class="card-title-row">
+          <h3>ID do utente</h3>
+          <button type="button" class="btn-outline btn-inline" data-copy-text="{{ patient.id }}" data-copy-label="Copiar ID">Copiar ID</button>
+        </div>
+        <p class="big">#{{ patient.id }}</p>
+        <p class="muted small">Registo ativo para monitorizacao e alarmes.</p>
+      </article>
+      <article class="card">
+        <h3>Medicamentos ativos</h3>
+        <p class="big">{{ meds_count }}</p>
+        <p class="muted small">Registos atuais na lista do utente.</p>
+      </article>
+      <article class="card">
+        <h3>Historico de tomas</h3>
+        <p class="big">{{ tomas_count }}</p>
+        {% if latest_toma %}
+        <p class="muted small">Ultima toma: {{ latest_toma.data }} | {{ latest_toma.hora }}</p>
+        {% else %}
+        <p class="muted small">Sem tomas confirmadas.</p>
+        {% endif %}
+      </article>
+      <article class="card">
+        <h3>Alertas recentes</h3>
+        {% if tomas_stats.total %}
+        <div class="card-metrics">
+          <div>
+            <div class="metric-value">{{ tomas_stats.late }}</div>
+            <div class="metric-label">Atrasos</div>
+          </div>
+          <div>
+            <div class="metric-value">{{ tomas_stats.missed }}</div>
+            <div class="metric-label">Nao tomados</div>
+          </div>
+          <div>
+            <div class="metric-value">{{ tomas_stats.on_time }}</div>
+            <div class="metric-label">Em dia</div>
+          </div>
+        </div>
+        <p class="muted small">Baseado nos ultimos {{ tomas_stats.scope }} registos.</p>
+        {% else %}
+        <p class="muted small">Sem dados de tomas para calcular alertas.</p>
+        {% endif %}
+      </article>
+    </section>
+
+    <section class="side-by-side">
+      <div class="panel patient-panel">
+        <h3>Dados do utente</h3>
+        <div class="form-grid">
+          <div>
+            <div class="muted small">Nome do utente</div>
+            <div class="admin-list-title">{{ patient.display_name }}</div>
+          </div>
+          <div>
+            <div class="muted small">ID do utente</div>
+            <div class="admin-list-title">#{{ patient.id }}</div>
+          </div>
+          <div>
+            <div class="muted small">Criado em</div>
+            <div class="admin-list-title">
+              {% if patient.created_at %}{{ patient.created_at.strftime('%Y-%m-%d %H:%M') }}{% else %}—{% endif %}
+            </div>
+          </div>
+          <p class="muted small">Modo de consulta: edicao desativada. Usa os dados deste navegador.</p>
+        </div>
+        <div class="patient-insights">
+          <div class="patient-insight-card">
+            <span class="muted small">Estado geral</span>
+            <strong>{% if has_attention %}Com alertas{% else %}Sem alertas{% endif %}</strong>
+          </div>
+          <div class="patient-insight-card">
+            <span class="muted small">Registos analisados</span>
+            <strong>{{ tomas_stats.scope }}</strong>
+          </div>
+        </div>
+        <div class="template-row" style="margin-top: 12px;">
+          <a class="btn-outline" href="/admin_2026/users/{{ patient.id }}/history.csv">Exportar historico CSV</a>
         </div>
       </div>
 
-      <div class="card history-card">
-        <div class="card-header"><h2>Hist?rico de tomas</h2></div>
-        <div class="tomas-list">
-          {% for t in tomas %}
-          <div class="toma-item">
+      <div class="panel" id="meds-panel">
+        <div class="panel-header-row">
+          <h3>Medicamentos</h3>
+          <span class="list-count-badge" role="status" aria-live="polite"><span id="meds-visible">{{ meds_count }}</span> / {{ meds_count }}</span>
+        </div>
+
+        <div class="list-tools">
+          <label for="meds-filter" class="sr-only">Filtrar medicamentos</label>
+          <input id="meds-filter" class="input-base list-filter-input" type="search" placeholder="Filtrar por nome, dose, hora ou dias" autocomplete="off" />
+          <button type="button" class="btn-outline list-clear" data-clear-target="meds-filter">Limpar</button>
+        </div>
+        <p class="muted small list-hint">Atalho: / foca o filtro. Esc limpa o campo.</p>
+
+        <div class="admin-list" id="meds-list" data-empty-message="Sem medicamentos registados para este utente.">
+          {% for m in meds %}
+          <div class="admin-list-item" data-filter-item data-search="{{ (m.nome ~ ' ' ~ m.dose ~ ' ' ~ m.hora ~ ' ' ~ (m.data or '')) | lower }}">
             <div>
-              <div class="med-title">{{ t.nome }}</div>
-              <div class="med-meta">{{ t.dose }}{% if t.nota %} ? {{ t.nota }}{% endif %}</div>
+              <div class="admin-list-title">{{ m.nome }}</div>
+              <div class="admin-list-meta admin-list-tags">
+                <span>{{ m.dose }}</span>
+                <span>{{ m.hora }}</span>
+                {% if m.data %}<span>{{ m.data }}</span>{% endif %}
+              </div>
             </div>
-            <div class="toma-time">{{ t.data }} ? {{ t.hora }}</div>
+            <div class="list-item-aside">
+              <span class="status-pill neutral">Ativo</span>
+            </div>
           </div>
           {% endfor %}
+          <p class="empty-state" data-empty-state {% if meds %}hidden{% endif %}>Sem medicamentos registados para este utente.</p>
+          <div class="empty-action" data-empty-action {% if meds %}hidden{% endif %}>
+            <a class="btn-outline" href="/admin_2026/reminders">Adicionar alarme</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" id="tomas-panel">
+        <div class="panel-header-row">
+          <h3>Historico de tomas</h3>
+          <span class="list-count-badge" role="status" aria-live="polite"><span id="tomas-visible">{{ tomas_count }}</span> / {{ tomas_count }}</span>
+        </div>
+
+        <div class="list-tools">
+          <label for="tomas-filter" class="sr-only">Filtrar historico</label>
+          <input id="tomas-filter" class="input-base list-filter-input" type="search" placeholder="Filtrar por nome, dose, estado, data ou hora" autocomplete="off" />
+          <button type="button" class="btn-outline list-clear" data-clear-target="tomas-filter">Limpar</button>
+        </div>
+        <div class="list-chips">
+          <button type="button" class="chip" data-filter-target="tomas-filter" data-filter-value="atraso">
+            Atraso <span class="chip-count" data-chip-count="late">0</span>
+          </button>
+          <button type="button" class="chip" data-filter-target="tomas-filter" data-filter-value="em falta">
+            Em falta <span class="chip-count" data-chip-count="missed">0</span>
+          </button>
+          <button type="button" class="chip" data-filter-target="tomas-filter" data-filter-value="em dia">
+            Em dia <span class="chip-count" data-chip-count="on_time">0</span>
+          </button>
+        </div>
+        <p class="muted small list-hint">Atalho: / foca o filtro. Esc limpa o campo.</p>
+
+        <div class="admin-list" id="tomas-list" data-empty-message="Ainda nao existem tomas confirmadas.">
+          {% for t in tomas %}
+          {% set is_late = t.late_minutes and t.late_minutes > 0 %}
+          {% set is_missed = t.status and t.status != 'taken' %}
+          {% set is_on_time = t.status == 'taken' and (not t.late_minutes or t.late_minutes <= 0) %}
+          <div class="admin-list-item{% if is_missed %} is-missed{% elif is_late %} is-late{% endif %}"
+               data-filter-item
+               data-toma-late="{{ 1 if is_late else 0 }}"
+               data-toma-missed="{{ 1 if is_missed else 0 }}"
+               data-toma-on-time="{{ 1 if is_on_time else 0 }}"
+               data-search="{{ (t.nome ~ ' ' ~ t.dose ~ ' ' ~ (t.nota or '') ~ ' ' ~ (t.status or '') ~ ' ' ~ t.data ~ ' ' ~ t.hora ~ ' ' ~ ('atraso' if is_late else '') ~ ' ' ~ ('em falta' if is_missed else '') ~ ' ' ~ ('em dia' if is_on_time else '')) | lower }}">
+            <div>
+              <div class="admin-list-title">{{ t.nome }}</div>
+              <div class="admin-list-meta admin-list-tags">
+                <span>{{ t.dose }}</span>
+                {% if t.late_minutes and t.late_minutes > 0 %}<span class="tag tag-warning">Atraso: {{ t.late_minutes }} min</span>{% endif %}
+                {% if t.status and t.status != 'taken' %}<span class="tag tag-danger">Estado: {{ t.status }}</span>{% endif %}
+                {% if t.status == 'taken' and (not t.late_minutes or t.late_minutes <= 0) %}<span class="tag tag-ok">Em dia</span>{% endif %}
+              </div>
+            </div>
+            <div class="list-item-aside">
+              <span class="status-pill {% if is_missed %}missed{% elif is_late %}late{% else %}ok{% endif %}">
+                {% if is_missed %}Em falta{% elif is_late %}Atraso{% else %}Em dia{% endif %}
+              </span>
+              <div class="admin-list-meta admin-list-time">{{ t.data }} | {{ t.hora }}</div>
+            </div>
+          </div>
+          {% endfor %}
+          <p class="empty-state" data-empty-state {% if tomas %}hidden{% endif %}>Ainda nao existem tomas confirmadas.</p>
         </div>
       </div>
     </section>
   </main>
+
+  <script src="/static/js/admin_shell.js"></script>
+  <script src="/static/js/admin_user.js"></script>
+  <script src="/static/js/page_tutorial.js"></script>
+  <script src="/static/js/pwa.js"></script>
 </body>
 </html>

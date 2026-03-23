@@ -21,3 +21,9 @@ instance/
 Thumbs.db
 .vscode/
 .idea/
+
+# Local tooling / logs
+.tools/
+*.log
+tmp_*.log
+run_pape.bat
