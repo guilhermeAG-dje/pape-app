@@ -10,6 +10,7 @@ const nextAlarmEl = document.getElementById("next-alarm-text");
 const activeCountEl = document.getElementById("active-count");
 const takenTodayEl = document.getElementById("taken-today");
 const adherenceTodayEl = document.getElementById("adherence-today");
+const missedTodayEl = document.getElementById("missed-today");
 const kioskMsgEl = document.getElementById("kiosk-message");
 const btnFullscreen = document.getElementById("btn-fullscreen");
 const btnWakelock = document.getElementById("btn-wakelock");
@@ -20,6 +21,8 @@ const patientCurrentEl = document.getElementById("patient-current");
 const kioskTitle = document.getElementById("kiosk-title");
 const kioskTimesExtraList = document.getElementById("times-extra-list");
 const addTimeExtraBtn = document.getElementById("add-time-extra");
+const tabButtons = Array.from(document.querySelectorAll("[data-tab-target]"));
+const tabPanels = Array.from(document.querySelectorAll("[data-tab-panel]"));
 
 const modal = document.getElementById("alarm-modal");
 const alarmTitle = document.getElementById("alarm-title");
@@ -167,6 +170,29 @@ function applyPrefs() {
   document.body.classList.toggle("hc", !!prefs.hc);
 }
 
+function setActiveTab(name, scrollTargetId) {
+  if (!name) return;
+
+  tabButtons.forEach((button) => {
+    const isActive = button.dataset.tabTarget === name;
+    if (button.classList.contains("view-tab")) {
+      button.classList.toggle("is-active", isActive);
+      button.setAttribute("aria-selected", isActive ? "true" : "false");
+    }
+  });
+
+  tabPanels.forEach((panel) => {
+    panel.hidden = panel.dataset.tabPanel !== name;
+  });
+
+  if (scrollTargetId) {
+    const target = document.getElementById(scrollTargetId);
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+}
+
 function pad2(n) {
   return String(n).padStart(2, "0");
 }
@@ -187,6 +213,14 @@ function updateClock() {
     clockEl.textContent = `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
   }
 }
+
+tabButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    setActiveTab(button.dataset.tabTarget, button.dataset.scrollTarget);
+  });
+});
+
+setActiveTab("summary");
 
 async function fetchStats() {
   if (!patientId) {
@@ -209,6 +243,9 @@ async function fetchStats() {
     if (adherenceTodayEl) {
       const pct = (data.adherence_today ?? 0);
       adherenceTodayEl.textContent = `${pct}%`;
+    }
+    if (missedTodayEl) {
+      missedTodayEl.textContent = String(data.missed_today || 0);
     }
   } catch {
     // ignore transient failures

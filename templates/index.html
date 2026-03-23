@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <meta name="theme-color" content="#0f766e">
-  <meta name="description" content="LembreMe - Alarme de medicação para idosos">
-  <title>LembreMe - Alarme de Medicação</title>
+  <meta name="description" content="LembreMe - Alarme de medicacao para idosos">
+  <title>LembreMe - Alarme de Medicacao</title>
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -17,9 +17,12 @@
   <header class="topbar">
     <div class="brand">
       <p class="eyebrow">LembreMe</p>
-      <h1 id="kiosk-title">Hora da Medicação</h1>
-      <p class="sub">Cada utente configura os seus medicamentos aqui. O Admin serve para acompanhar com gráficos.</p>
-      <div class="kiosk-actions">
+      <h1 id="kiosk-title">Gestao rapida da medicacao</h1>
+      <p class="sub">Menos texto no ecra. Usa as abas para ir direto ao que precisas.</p>
+      <div class="hero-actions">
+        <button class="quick-link" type="button" data-tab-target="meds" data-scroll-target="config-panel">Adicionar</button>
+        <button class="quick-link" type="button" data-tab-target="today" data-scroll-target="today-panel">Plano de hoje</button>
+        <button class="quick-link" type="button" data-tab-target="support" data-scroll-target="help-panel">Ajuda</button>
         <button id="install-app-btn" class="ghost-btn" type="button" hidden>Instalar app</button>
       </div>
       <p id="kiosk-message" class="hint" aria-live="polite"></p>
@@ -27,137 +30,182 @@
     <div class="clock-card">
       <p>Hora atual</p>
       <div id="live-clock">00:00:00</div>
+      <button class="ghost-btn clock-shortcut" type="button" data-tab-target="summary" data-scroll-target="next-alarm-panel">Ver proximo alarme</button>
     </div>
   </header>
 
+  <nav class="view-tabs" aria-label="Navegacao principal">
+    <button class="view-tab is-active" type="button" data-tab-target="summary" aria-selected="true">Resumo</button>
+    <button class="view-tab" type="button" data-tab-target="meds" aria-selected="false">Medicamentos</button>
+    <button class="view-tab" type="button" data-tab-target="today" aria-selected="false">Rotina</button>
+    <button class="view-tab" type="button" data-tab-target="support" aria-selected="false">Apoio</button>
+  </nav>
+
   <main class="layout">
-    <section class="panel patient-panel">
-      <h2>Utente</h2>
-      <div class="patient-row">
-        <div class="patient-identification">
-          <div class="patient-avatar" aria-hidden="true">U</div>
-          <div>
-            <p class="hint" style="margin:0;">Selecionado</p>
-            <div id="patient-current" class="patient-current">-</div>
+    <section class="panel-group" data-tab-panel="summary">
+      <section id="patient-panel" class="panel patient-panel">
+        <div class="panel-header">
+          <h2>Utente</h2>
+          <span class="panel-pill">Resumo</span>
+        </div>
+        <div class="patient-row">
+          <div class="patient-identification">
+            <div class="patient-avatar" aria-hidden="true">U</div>
+            <div>
+              <p class="hint compact-hint">Selecionado</p>
+              <div id="patient-current" class="patient-current">-</div>
+            </div>
           </div>
         </div>
-      </div>
-      <div class="patient-meta">
-        <span id="patient-age">Idade: --</span>
-        <span id="patient-sns">N.º SNS: --</span>
-      </div>
-    </section>
-
-    <section class="panel config-panel">
-      <h2>Adicionar Medicamento</h2>
-      <form id="kiosk-reminder-form" class="kiosk-form">
-        <label>Medicamento</label>
-        <input name="medicine_name" type="text" placeholder="Ex: Aspirina" required>
-        <label>Dose</label>
-        <input name="dose" type="text" placeholder="Ex: 1 comprimido" required>
-        <label>Hora (principal)</label>
-        <input name="time_hhmm" type="time" required>
-        <label>Outras horas (opcional)</label>
-        <div id="times-extra-list" class="times-extra-list"></div>
-        <button id="add-time-extra" class="ghost-btn" type="button">Adicionar hora</button>
-        <label>Stock (opcional)</label>
-        <input name="stock_count" type="number" min="0" step="1" placeholder="Ex: 30">
-        <button class="primary-btn" type="submit">Guardar</button>
-      </form>
-      <p id="kiosk-form-msg" class="hint" aria-live="polite"></p>
-    </section>
-
-    <section class="panel reminders-panel">
-      <h2>Meus Medicamentos</h2>
-      <div id="reminders-list" class="reminders-list"></div>
-    </section>
-
-    <section class="panel next-alarm">
-      <h2>Próximo Alarme</h2>
-      <p id="next-alarm-text" aria-live="polite">Sem alarmes configurados.</p>
-      <div class="next-actions">
-        <button id="btn-confirm-next" class="primary-btn" type="button">Confirmar toma</button>
-        <button id="btn-snooze-next" class="secondary-btn" type="button">Adiar 10 min</button>
-      </div>
-      <div class="stats">
-        <div class="stat">
-          <span>Alarmes ativos</span>
-          <strong id="active-count">0</strong>
+        <div class="patient-meta">
+          <span id="patient-age">Idade: --</span>
+          <span id="patient-sns">N.o SNS: --</span>
         </div>
-        <div class="stat">
-          <span>Tomas confirmadas hoje</span>
-          <strong id="taken-today">0</strong>
-        </div>
-        <div class="stat">
-          <span>Adesão hoje</span>
-          <strong id="adherence-today">0%</strong>
-        </div>
-        <div class="stat">
-          <span>Em falta hoje</span>
-          <strong id="missed-today">0</strong>
-        </div>
-      </div>
-    </section>
+      </section>
 
-    <section class="panel alerts-panel">
-      <h2>Alertas de stock</h2>
-      <div id="stock-alerts" class="alerts-list">
-        <div class="alert-item warn">
-          <div>
-            <strong>Sem alertas de stock.</strong>
-            <p class="hint">Quando um medicamento estiver a acabar, aparece aqui.</p>
+      <section id="next-alarm-panel" class="panel next-alarm">
+        <div class="panel-header">
+          <h2>Proximo Alarme</h2>
+          <span class="panel-pill">Atalho principal</span>
+        </div>
+        <p id="next-alarm-text" aria-live="polite">Sem alarmes configurados.</p>
+        <div class="next-actions">
+          <button id="btn-confirm-next" class="primary-btn" type="button">Confirmar toma</button>
+          <button id="btn-snooze-next" class="secondary-btn" type="button">Adiar 10 min</button>
+        </div>
+        <div class="stats">
+          <div class="stat">
+            <span>Alarmes ativos</span>
+            <strong id="active-count">0</strong>
+          </div>
+          <div class="stat">
+            <span>Tomas hoje</span>
+            <strong id="taken-today">0</strong>
+          </div>
+          <div class="stat">
+            <span>Adesao</span>
+            <strong id="adherence-today">0%</strong>
+          </div>
+          <div class="stat">
+            <span>Em falta</span>
+            <strong id="missed-today">0</strong>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <section class="panel today-panel">
-      <h2>Hoje</h2>
-      <div id="today-list" class="today-list" aria-live="polite"></div>
-      <div class="kiosk-foot">
-        <p class="hint">Toque e confirme cada toma quando tocar o alarme.</p>
-      </div>
-    </section>
-
-    <section class="panel history-panel">
-      <h2>Histórico rápido</h2>
-      <div id="history-list" class="history-list">
-        <div class="history-item">
-          <div class="history-title">Sem histórico ainda</div>
-          <div class="history-meta">As últimas 3 confirmações aparecem aqui.</div>
+      <section id="alerts-panel" class="panel alerts-panel">
+        <div class="panel-header">
+          <h2>Alertas</h2>
+          <span class="panel-pill">Stock</span>
         </div>
-      </div>
+        <div id="stock-alerts" class="alerts-list">
+          <div class="alert-item warn">
+            <div>
+              <strong>Sem alertas de stock.</strong>
+              <p class="hint compact-hint">Quando um medicamento estiver a acabar, aparece aqui.</p>
+            </div>
+          </div>
+        </div>
+      </section>
     </section>
 
-    <section class="panel week-panel">
-      <h2>Últimos 7 dias</h2>
-      <div id="week-list" class="week-list"></div>
+    <section class="panel-group" data-tab-panel="meds" hidden>
+      <section id="config-panel" class="panel config-panel">
+        <div class="panel-header">
+          <h2>Adicionar Medicamento</h2>
+          <span class="panel-pill">Criar</span>
+        </div>
+        <form id="kiosk-reminder-form" class="kiosk-form">
+          <label>Medicamento</label>
+          <input name="medicine_name" type="text" placeholder="Ex: Aspirina" required>
+          <label>Dose</label>
+          <input name="dose" type="text" placeholder="Ex: 1 comprimido" required>
+          <label>Hora principal</label>
+          <input name="time_hhmm" type="time" required>
+          <label>Outras horas</label>
+          <div id="times-extra-list" class="times-extra-list"></div>
+          <button id="add-time-extra" class="ghost-btn" type="button">Adicionar hora</button>
+          <label>Stock</label>
+          <input name="stock_count" type="number" min="0" step="1" placeholder="Ex: 30">
+          <button class="primary-btn" type="submit">Guardar</button>
+        </form>
+        <p id="kiosk-form-msg" class="hint" aria-live="polite"></p>
+      </section>
+
+      <section id="reminders-panel" class="panel reminders-panel">
+        <div class="panel-header">
+          <h2>Meus Medicamentos</h2>
+          <span class="panel-pill">Lista</span>
+        </div>
+        <div id="reminders-list" class="reminders-list"></div>
+      </section>
     </section>
 
-    <section class="panel caregiver-panel">
-      <h2>Modo cuidador</h2>
-      <p class="hint">Partilha rápida com familiares ou profissionais de saúde.</p>
-      <div class="kiosk-actions">
-        <button id="btn-caregiver-summary" class="primary-btn" type="button">Enviar resumo</button>
-        <button id="btn-caregiver-report" class="ghost-btn" type="button">Ver relatório</button>
-      </div>
+    <section class="panel-group" data-tab-panel="today" hidden>
+      <section id="today-panel" class="panel today-panel">
+        <div class="panel-header">
+          <h2>Hoje</h2>
+          <span class="panel-pill">Rotina</span>
+        </div>
+        <div id="today-list" class="today-list" aria-live="polite"></div>
+        <div class="kiosk-foot">
+          <p class="hint compact-hint">Confirma a toma assim que o alarme tocar.</p>
+        </div>
+      </section>
+
+      <section id="week-panel" class="panel week-panel">
+        <div class="panel-header">
+          <h2>Ultimos 7 dias</h2>
+          <span class="panel-pill">Evolucao</span>
+        </div>
+        <div id="week-list" class="week-list"></div>
+      </section>
+
+      <section id="history-panel" class="panel history-panel">
+        <div class="panel-header">
+          <h2>Historico Rapido</h2>
+          <span class="panel-pill">Recentes</span>
+        </div>
+        <div id="history-list" class="history-list">
+          <div class="history-item">
+            <div class="history-title">Sem historico ainda</div>
+            <div class="history-meta">As ultimas confirmacoes aparecem aqui.</div>
+          </div>
+        </div>
+      </section>
     </section>
 
-    <section class="panel help-panel">
-      <h2>Ajuda rápida</h2>
-      <ol class="help-steps">
-        <li>Este navegador guarda o utente automaticamente.</li>
-        <li>Confirma a hora da toma antes de guardar.</li>
-        <li>Quando o alarme tocar, toca em "Confirmar toma".</li>
-        <li>Se precisares, adia a toma ou chama o cuidador.</li>
-      </ol>
+    <section class="panel-group" data-tab-panel="support" hidden>
+      <section id="caregiver-panel" class="panel caregiver-panel">
+        <div class="panel-header">
+          <h2>Modo Cuidador</h2>
+          <span class="panel-pill">Partilha</span>
+        </div>
+        <p class="hint compact-hint">Resumo rapido para familia ou profissionais.</p>
+        <div class="kiosk-actions">
+          <button id="btn-caregiver-summary" class="primary-btn" type="button">Enviar resumo</button>
+          <button id="btn-caregiver-report" class="ghost-btn" type="button">Ver relatorio</button>
+        </div>
+      </section>
+
+      <section id="help-panel" class="panel help-panel">
+        <div class="panel-header">
+          <h2>Ajuda Rapida</h2>
+          <span class="panel-pill">Passos</span>
+        </div>
+        <ol class="help-steps">
+          <li>Abre a aba certa em vez de procurar no ecran todo.</li>
+          <li>Guarda o medicamento e confirma a hora.</li>
+          <li>Quando tocar, toca em "Confirmar toma".</li>
+        </ol>
+      </section>
     </section>
   </main>
 
   <div id="alarm-modal" class="alarm-modal hidden" role="alertdialog" aria-modal="true">
     <div class="alarm-box">
       <p class="alarm-tag">ALERTA DE TOMA</p>
-      <h3 id="alarm-title">Hora da medicação</h3>
+      <h3 id="alarm-title">Hora da medicacao</h3>
       <p id="alarm-detail"></p>
       <div class="alarm-actions">
         <button id="btn-confirm" class="primary-btn">Confirmar toma</button>
