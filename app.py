@@ -1178,8 +1178,16 @@ def stats_today():
             continue
         expected += len(times_from_row(r))
     adherence = round((taken_today / expected * 100), 1) if expected else 0.0
+    missed_today = max(int(expected) - int(taken_today), 0)
 
-    return jsonify({'ok': True, 'taken_today': taken_today, 'active_reminders': active_reminders, 'expected_today': expected, 'adherence_today': adherence})
+    return jsonify({
+        'ok': True,
+        'taken_today': taken_today,
+        'active_reminders': active_reminders,
+        'expected_today': expected,
+        'adherence_today': adherence,
+        'missed_today': missed_today
+    })
 
 
 @app.route('/api/schedule/today', methods=['GET'])
@@ -1228,6 +1236,29 @@ def schedule_today():
 
     items.sort(key=lambda x: x['time_hhmm'])
     return jsonify({'ok': True, 'date': date_str, 'items': items})
+
+
+@app.route('/api/history/recent', methods=['GET'])
+def history_recent():
+    pid = resolve_patient_id()
+    q = MedicationLog.query
+    if pid:
+        q = q.filter(MedicationLog.patient_id == pid)
+    rows = (
+        q.order_by(MedicationLog.confirmed_at.desc(), MedicationLog.id.desc())
+        .limit(3)
+        .all()
+    )
+    items = []
+    for row in rows:
+        items.append({
+            'medicine_name': row.medicine_name,
+            'dose': row.dose,
+            'status': row.status,
+            'late_minutes': row.late_minutes or 0,
+            'confirmed_at': row.confirmed_at.strftime('%Y-%m-%d %H:%M') if row.confirmed_at else ''
+        })
+    return jsonify({'ok': True, 'items': items})
 
 
 @app.route('/api/stats/week', methods=['GET'])

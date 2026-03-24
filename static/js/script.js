@@ -5,6 +5,7 @@ const kioskReminderForm = document.getElementById("kiosk-reminder-form");
 const kioskFormMsg = document.getElementById("kiosk-form-msg");
 const todayListEl = document.getElementById("today-list");
 const weekListEl = document.getElementById("week-list");
+const historyListEl = document.getElementById("history-list");
 const clockEl = document.getElementById("live-clock");
 const nextAlarmEl = document.getElementById("next-alarm-text");
 const activeCountEl = document.getElementById("active-count");
@@ -223,13 +224,6 @@ tabButtons.forEach((button) => {
 setActiveTab("summary");
 
 async function fetchStats() {
-  if (!patientId) {
-    if (activeCountEl) activeCountEl.textContent = "0";
-    if (takenTodayEl) takenTodayEl.textContent = "0";
-    if (adherenceTodayEl) adherenceTodayEl.textContent = "0%";
-    if (missedTodayEl) missedTodayEl.textContent = "0";
-    return;
-  }
   try {
     const res = await apiFetch(`/api/stats/today${qsForPatient()}`);
     if (!res.ok) return;
@@ -267,10 +261,6 @@ function dayNames(days) {
 
 function formatNextAlarmText() {
   if (!nextAlarmEl) return;
-  if (!patientId) {
-    nextAlarmEl.textContent = "A aguardar identificacao do utente.";
-    return;
-  }
   const now = new Date();
   const active = reminders.filter(r => r.is_active);
   if (!active.length) {
@@ -322,10 +312,6 @@ function renderReminders() {
     return;
   }
   listEl.innerHTML = "";
-  if (!patientId) {
-    listEl.innerHTML = "<p>A aguardar identificacao do utente.</p>";
-    return;
-  }
   if (!reminders.length) {
     listEl.innerHTML = "<p>Sem alarmes. Crie o primeiro acima.</p>";
     return;
@@ -358,10 +344,6 @@ function renderTodaySchedule() {
     return;
   }
   todayListEl.innerHTML = "";
-  if (!patientId) {
-    todayListEl.innerHTML = "<p>A aguardar identificacao do utente.</p>";
-    return;
-  }
   if (!todaySchedule.length) {
     todayListEl.innerHTML = "<p>Sem alarmes ativos para hoje.</p>";
     return;
@@ -383,13 +365,6 @@ function renderTodaySchedule() {
 }
 
 async function loadReminders() {
-  if (!patientId) {
-    reminders = [];
-    renderReminders();
-    formatNextAlarmText();
-    fetchStats();
-    return;
-  }
   try {
     const res = await apiFetch(`/api/reminders${qsForPatient()}`);
     if (!res.ok) throw new Error("load reminders failed");
@@ -407,11 +382,6 @@ async function loadReminders() {
 }
 
 async function loadSchedule() {
-  if (!patientId) {
-    todaySchedule = [];
-    renderTodaySchedule();
-    return;
-  }
   try {
     const res = await apiFetch(`/api/schedule/today${qsForPatient()}`);
     if (!res.ok) throw new Error("load schedule failed");
@@ -426,10 +396,6 @@ async function loadSchedule() {
 
 async function loadWeek() {
   if (!weekListEl) return;
-  if (!patientId) {
-    weekListEl.innerHTML = "<p>A aguardar identificacao do utente.</p>";
-    return;
-  }
   try {
     const res = await apiFetch(`/api/stats/week${qsForPatient()}`);
     if (!res.ok) throw new Error("load week failed");
@@ -445,6 +411,44 @@ async function loadWeek() {
     }
   } catch {
     weekListEl.innerHTML = "<p>Sem dados dos ultimos 7 dias.</p>";
+  }
+}
+
+async function loadHistory() {
+  if (!historyListEl) return;
+  try {
+    const res = await apiFetch(`/api/history/recent${qsForPatient()}`);
+    if (!res.ok) throw new Error("load history failed");
+    const data = await res.json();
+    const items = data.items || [];
+    historyListEl.innerHTML = "";
+    if (!items.length) {
+      historyListEl.innerHTML = `
+        <div class="history-item">
+          <div class="history-title">Sem historico ainda</div>
+          <div class="history-meta">As ultimas confirmacoes aparecem aqui.</div>
+        </div>
+      `;
+      return;
+    }
+    for (const item of items) {
+      const row = document.createElement("div");
+      row.className = "history-item";
+      const late = Number(item.late_minutes || 0);
+      const status = item.status === "taken" ? (late > 0 ? `Atraso ${late} min` : "Em dia") : (item.status || "Sem estado");
+      row.innerHTML = `
+        <div class="history-title">${escapeHtml(item.medicine_name)}</div>
+        <div class="history-meta">${escapeHtml(item.dose)} | ${escapeHtml(status)} | ${escapeHtml(item.confirmed_at || "")}</div>
+      `;
+      historyListEl.appendChild(row);
+    }
+  } catch {
+    historyListEl.innerHTML = `
+      <div class="history-item">
+        <div class="history-title">Historico indisponivel</div>
+        <div class="history-meta">Nao foi possivel carregar os registos recentes.</div>
+      </div>
+    `;
   }
 }
 
@@ -488,12 +492,8 @@ async function setCurrentPatient(id) {
 
 async function loadCurrentPatientLabel() {
   if (!patientCurrentEl) return;
-  if (!patientId) {
-    patientCurrentEl.textContent = "-";
-    return;
-  }
   const res = await apiFetch(`/api/patient/current${qsForPatient()}`);
-  const data = await res.json();
+  const data = await res.json().catch(() => ({}));
   patientCurrentEl.textContent = data.display_name || "-";
 }
 
@@ -678,8 +678,11 @@ if (kioskReminderForm) {
   kioskReminderForm.addEventListener("submit", async (ev) => {
     ev.preventDefault();
     if (!patientId) {
-      if (kioskFormMsg) kioskFormMsg.textContent = "Selecione um utente primeiro.";
-      return;
+      const ok = await initKioskPatient();
+      if (!ok || !patientId) {
+        if (kioskFormMsg) kioskFormMsg.textContent = "Selecione um utente primeiro.";
+        return;
+      }
     }
     const fd = new FormData(kioskReminderForm);
     const base = String(fd.get("time_hhmm") || "").trim();
@@ -714,6 +717,7 @@ if (kioskReminderForm) {
     await loadReminders();
     await loadSchedule();
     await loadWeek();
+    await loadHistory();
   });
 }
 
@@ -771,6 +775,7 @@ if (btnConfirm) {
     closeAlarm();
     loadReminders();
     loadSchedule();
+    loadHistory();
   });
 }
 
@@ -905,13 +910,23 @@ async function loadPublicConfig() {
 applyPrefs();
 updateClock();
 initKioskPatient().then(async (ok) => {
-  if (!ok || !patientId) return;
+  if (!ok && !patientId) {
+    await loadCurrentPatientLabel();
+    await loadReminders();
+    await loadSchedule();
+    await loadWeek();
+    await loadHistory();
+    return;
+  }
+  await loadCurrentPatientLabel();
   await loadReminders();
   await loadSchedule();
   await loadWeek();
+  await loadHistory();
 });
 loadPublicConfig();
 setInterval(updateClock, 1000);
 setInterval(checkDueReminders, 1000);
 setInterval(loadSchedule, 60 * 1000);
 setInterval(loadWeek, 10 * 60 * 1000);
+setInterval(loadHistory, 5 * 60 * 1000);
