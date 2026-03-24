@@ -2,17 +2,200 @@
   const path = (window.location.pathname || "").toLowerCase();
   const MARGIN = 12;
 
+  function waitFrame() {
+    return new Promise((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(resolve));
+    });
+  }
+
+  function activateAppTab(name) {
+    const button = document.querySelector(`.view-tab[data-tab-target="${name}"]`);
+    if (button instanceof HTMLElement) {
+      button.click();
+    }
+  }
+
+  function setRadioValue(selector, value) {
+    const input = document.querySelector(`${selector}[value="${value}"]`);
+    if (input instanceof HTMLInputElement) {
+      input.checked = true;
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  }
+
+  function getCheckedValue(selector) {
+    const input = document.querySelector(`${selector}:checked`);
+    return input instanceof HTMLInputElement ? String(input.value || "") : "";
+  }
+
+  function captureUiState() {
+    const activeTab = document.querySelector(".view-tab.is-active");
+    const activeTabName = activeTab instanceof HTMLElement ? String(activeTab.dataset.tabTarget || "") : "";
+    const publicMode = getCheckedValue('#kiosk-reminder-form input[name="schedule_mode"]');
+    const adminMode = getCheckedValue('#reminder-form input[name="schedule_mode"]');
+
+    return function restoreUiState() {
+      if (activeTabName) {
+        activateAppTab(activeTabName);
+      }
+      if (publicMode) {
+        setRadioValue('#kiosk-reminder-form input[name="schedule_mode"]', publicMode);
+      }
+      if (adminMode) {
+        setRadioValue('#reminder-form input[name="schedule_mode"]', adminMode);
+      }
+    };
+  }
+
+  function isElementVisible(element) {
+    if (!(element instanceof HTMLElement)) return false;
+    const style = window.getComputedStyle(element);
+    if (style.display === "none" || style.visibility === "hidden") return false;
+    return element.getClientRects().length > 0;
+  }
+
+  function findStepElement(step) {
+    if (!step || !step.selector) return null;
+    if (typeof step.selector === "function") {
+      return step.selector();
+    }
+    return document.querySelector(step.selector);
+  }
+
   function buildSteps() {
     if (path === "/" || path.startsWith("/reset")) {
       return [
-        { selector: "#patient-current", title: "Utente", text: "Este navegador guarda o utente automaticamente. Noutro browser será outro utente.", pos: "bottom" },
-        { selector: "#kiosk-reminder-form [name='medicine_name']", title: "Medicamento", text: "Começa por escrever o nome do medicamento.", pos: "right" },
-        { selector: "#kiosk-reminder-form [name='time_hhmm']", title: "Hora principal", text: "Define a primeira hora da toma.", pos: "right" },
-        { selector: "#kiosk-reminder-form [data-schedule-mode-group]", title: "Repetição", text: "Escolhe se queres tomar todos os dias ou apenas em dias específicos.", pos: "right" },
-        { selector: "#kiosk-reminder-form [name='pill_image']", title: "Imagem do comprimido", text: "Podes juntar uma foto para reconhecer melhor o comprimido certo.", pos: "right" },
-        { selector: "#kiosk-reminder-form [name='stock_count']", title: "Stock (opcional)", text: "Preenche para receber alertas de stock baixo.", pos: "right" },
-        { selector: "#reminders-list", title: "Meus medicamentos", text: "Os teus alarmes aparecem aqui, por ordem de hora, com foto e tipo de repetição.", pos: "top" },
-        { selector: "#btn-confirm-next", title: "Confirmar toma", text: "Quando for a hora, confirma aqui.", pos: "top" }
+        {
+          selector: "#patient-panel",
+          title: "Resumo inicial",
+          text: "Aqui vês o utente atual e os atalhos principais da aplicação.",
+          pos: "bottom",
+          prepare: async () => {
+            activateAppTab("summary");
+            await waitFrame();
+          }
+        },
+        {
+          selector: "#next-alarm-panel",
+          title: "Próximo alarme",
+          text: "Este cartão mostra a próxima toma e permite confirmar ou adiar logo a partir do resumo.",
+          pos: "bottom",
+          prepare: async () => {
+            activateAppTab("summary");
+            await waitFrame();
+          }
+        },
+        {
+          selector: ".view-tab[data-tab-target='meds']",
+          title: "Aba Medicamentos",
+          text: "Agora vamos para a zona onde crias e geres os medicamentos.",
+          pos: "bottom",
+          prepare: async () => {
+            activateAppTab("summary");
+            await waitFrame();
+          }
+        },
+        {
+          selector: "#kiosk-reminder-form [name='medicine_name']",
+          title: "Nome do medicamento",
+          text: "Começa por escrever o nome do medicamento que queres adicionar.",
+          pos: "right",
+          prepare: async () => {
+            activateAppTab("meds");
+            await waitFrame();
+          }
+        },
+        {
+          selector: "#kiosk-reminder-form [name='time_hhmm']",
+          title: "Hora principal",
+          text: "Define a primeira hora da toma. Se precisares, podes acrescentar outras horas logo abaixo.",
+          pos: "right",
+          prepare: async () => {
+            activateAppTab("meds");
+            await waitFrame();
+          }
+        },
+        {
+          selector: "#kiosk-reminder-form [data-schedule-mode-group]",
+          title: "Repetição",
+          text: "Escolhe se queres tomar todos os dias ou apenas em dias específicos.",
+          pos: "right",
+          prepare: async () => {
+            activateAppTab("meds");
+            await waitFrame();
+          }
+        },
+        {
+          selector: "#kiosk-reminder-form [data-weekday-picker]",
+          title: "Dias específicos",
+          text: "Se escolheres dias específicos, esta lista abre para marcares exatamente os dias da semana.",
+          pos: "right",
+          prepare: async () => {
+            activateAppTab("meds");
+            setRadioValue('#kiosk-reminder-form input[name="schedule_mode"]', "weekly");
+            await waitFrame();
+          }
+        },
+        {
+          selector: "#kiosk-reminder-form [name='pill_image']",
+          title: "Imagem do comprimido",
+          text: "Podes juntar uma foto para reconhecer rapidamente qual comprimido tens de tomar.",
+          pos: "right",
+          prepare: async () => {
+            activateAppTab("meds");
+            await waitFrame();
+          }
+        },
+        {
+          selector: "#reminders-panel",
+          title: "Meus medicamentos",
+          text: "Depois de guardar, os medicamentos ficam aqui com horas, repetição e imagem.",
+          pos: "top",
+          prepare: async () => {
+            activateAppTab("meds");
+            await waitFrame();
+          }
+        },
+        {
+          selector: ".view-tab[data-tab-target='today']",
+          title: "Aba Rotina",
+          text: "Vamos agora à rotina para veres o plano do dia e o histórico mais recente.",
+          pos: "bottom",
+          prepare: async () => {
+            activateAppTab("meds");
+            await waitFrame();
+          }
+        },
+        {
+          selector: "#today-panel",
+          title: "Hoje",
+          text: "Aqui aparece a lista das tomas previstas para hoje, com o estado de cada uma.",
+          pos: "top",
+          prepare: async () => {
+            activateAppTab("today");
+            await waitFrame();
+          }
+        },
+        {
+          selector: "#history-panel",
+          title: "Histórico rápido",
+          text: "Nesta zona vês as confirmações mais recentes para perceber como está a correr a rotina.",
+          pos: "top",
+          prepare: async () => {
+            activateAppTab("today");
+            await waitFrame();
+          }
+        },
+        {
+          selector: "#help-panel",
+          title: "Ajuda e apoio",
+          text: "Na aba Apoio tens ajuda rápida e opções para partilhar informação com o cuidador.",
+          pos: "top",
+          prepare: async () => {
+            activateAppTab("support");
+            await waitFrame();
+          }
+        }
       ];
     }
 
@@ -38,12 +221,21 @@
         { selector: "#patient-current", title: "Utente deste browser", text: "Os alarmes ficam associados ao mesmo utente do kiosk.", pos: "bottom" },
         { selector: "#reminder-form [name='medicine_name']", title: "Novo alarme", text: "Cria um novo alarme de medicação.", pos: "right" },
         { selector: "#reminder-form [name='time_hhmm']", title: "Hora principal", text: "Define a primeira hora da toma.", pos: "right" },
-        { selector: "#reminder-form [data-schedule-mode-group]", title: "Repetição", text: "Escolhe entre todos os dias ou dias específicos da semana.", pos: "right" },
+        { selector: "#reminder-form [data-schedule-mode-group]", title: "Repetição", text: "Escolhe entre todos os dias ou dias específicos.", pos: "right" },
+        {
+          selector: "#reminder-form [data-weekday-picker]",
+          title: "Dias do modo semanal",
+          text: "Se escolheres dias específicos, marcas aqui os dias exatos do alarme.",
+          pos: "right",
+          prepare: async () => {
+            setRadioValue('#reminder-form input[name="schedule_mode"]', "weekly");
+            await waitFrame();
+          }
+        },
         { selector: "#reminder-form [name='pill_image']", title: "Imagem do comprimido", text: "Guarda uma foto para identificar rapidamente o comprimido.", pos: "right" },
+        { selector: "#reminders-list", title: "Lista de alarmes", text: "Todos os alarmes guardados aparecem aqui, com pesquisa e edição rápida.", pos: "top" },
         { selector: "#config-form", title: "Definições", text: "Ajusta PIN, email e configurações globais.", pos: "left" },
-        { selector: "#csv-form", title: "Importar CSV", text: "Importa alarmes em massa via ficheiro.", pos: "top" },
-        { selector: "#reminders-filter", title: "Filtrar alarmes", text: "Pesquisa por medicamento, dose ou hora.", pos: "bottom" },
-        { selector: "#reminders-active-toggle", title: "Ativos", text: "Mostra apenas alarmes ativos.", pos: "bottom" }
+        { selector: "#csv-form", title: "Importar CSV", text: "Importa alarmes em massa via ficheiro.", pos: "top" }
       ];
     }
 
@@ -53,7 +245,7 @@
         { selector: "#meds-filter", title: "Filtrar medicamentos", text: "Pesquisa por nome, dose, hora ou dias.", pos: "bottom" },
         { selector: "#tomas-filter", title: "Filtrar histórico", text: "Procura tomas por nome, estado, data ou hora.", pos: "bottom" },
         { selector: ".list-chips", title: "Filtros rápidos", text: "Aplica filtros com um clique para atraso, em falta ou em dia.", pos: "bottom" },
-        { selector: "#tomas-list", title: "Histórico de tomas", text: "Lista das tomas mais recentes (até 300).", pos: "top" }
+        { selector: "#tomas-list", title: "Histórico de tomas", text: "Lista das tomas mais recentes.", pos: "top" }
       ];
     }
 
@@ -207,6 +399,7 @@
       const side = options[i];
       let top = MARGIN;
       let left = MARGIN;
+
       if (side === "top") {
         top = targetRect.top - height - 18;
         left = targetRect.left + targetRect.width / 2 - width / 2;
@@ -220,6 +413,7 @@
         top = targetRect.top + targetRect.height / 2 - height / 2;
         left = targetRect.right + 18;
       }
+
       left = clamp(left, MARGIN, vw - width - MARGIN);
       top = clamp(top, MARGIN, vh - height - MARGIN);
 
@@ -228,27 +422,17 @@
         left >= MARGIN &&
         top + height <= vh - MARGIN &&
         left + width <= vw - MARGIN;
+
       if (fits || i === options.length - 1) {
-        return { top: top, left: left };
+        return { top, left };
       }
     }
+
     return { top: MARGIN, left: MARGIN };
   }
 
   function resolveSteps(rawSteps) {
-    const resolved = [];
-    for (let i = 0; i < rawSteps.length; i += 1) {
-      const step = rawSteps[i];
-      const element = document.querySelector(step.selector);
-      if (!element) continue;
-      resolved.push({
-        element: element,
-        title: step.title,
-        text: step.text,
-        pos: step.pos || "bottom"
-      });
-    }
-    return resolved;
+    return rawSteps.filter((step) => !!step && !!step.selector);
   }
 
   function runTour(steps, onClose) {
@@ -295,6 +479,7 @@
 
     const arrowLine = document.createElement("div");
     arrowLine.className = "pt-arrow-line";
+
     const arrowHead = document.createElement("div");
     arrowHead.className = "pt-arrow-head";
 
@@ -320,8 +505,8 @@
       tooltip.remove();
       arrowLine.remove();
       arrowHead.remove();
-      window.removeEventListener("resize", renderStep);
-      window.removeEventListener("scroll", renderStep, true);
+      window.removeEventListener("resize", onViewportChange);
+      window.removeEventListener("scroll", onViewportChange, true);
       document.removeEventListener("keydown", onKeyDown);
       if (typeof onClose === "function") onClose();
     }
@@ -335,29 +520,47 @@
       arrowLine.style.left = from.x + "px";
       arrowLine.style.top = from.y + "px";
       arrowLine.style.width = Math.max(8, length - 10) + "px";
-      arrowLine.style.transform = "rotate(" + angle + "deg)";
+      arrowLine.style.transform = `rotate(${angle}deg)`;
 
       arrowHead.style.left = (to.x - 10) + "px";
       arrowHead.style.top = (to.y - 6) + "px";
-      arrowHead.style.transform = "rotate(" + angle + "deg)";
+      arrowHead.style.transform = `rotate(${angle}deg)`;
     }
 
-    function renderStep() {
+    async function renderStep() {
       const step = steps[index];
       if (!step) return;
 
-      const rect = step.element.getBoundingClientRect();
-      step.element.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
-      const freshRect = step.element.getBoundingClientRect();
+      if (typeof step.prepare === "function") {
+        await step.prepare();
+      }
 
-      focus.style.left = (freshRect.left - 6) + "px";
-      focus.style.top = (freshRect.top - 6) + "px";
-      focus.style.width = (freshRect.width + 12) + "px";
-      focus.style.height = (freshRect.height + 12) + "px";
+      let element = findStepElement(step);
+      if (!isElementVisible(element)) {
+        if (index < steps.length - 1) {
+          index += 1;
+          await renderStep();
+        }
+        return;
+      }
+
+      element.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
+      await waitFrame();
+
+      element = findStepElement(step);
+      if (!isElementVisible(element)) {
+        return;
+      }
+
+      const rect = element.getBoundingClientRect();
+      focus.style.left = (rect.left - 6) + "px";
+      focus.style.top = (rect.top - 6) + "px";
+      focus.style.width = (rect.width + 12) + "px";
+      focus.style.height = (rect.height + 12) + "px";
 
       title.textContent = step.title;
       text.textContent = step.text;
-      meta.textContent = "Passo " + (index + 1) + " de " + steps.length;
+      meta.textContent = `Passo ${index + 1} de ${steps.length}`;
       prev.disabled = index === 0;
       next.textContent = index === steps.length - 1 ? "Terminar" : "Seguinte";
 
@@ -365,17 +568,17 @@
       tooltip.style.left = MARGIN + "px";
       tooltip.style.top = MARGIN + "px";
       const tooltipRect = tooltip.getBoundingClientRect();
-      const pos = pickTooltipPosition(freshRect, tooltipRect.width, tooltipRect.height, step.pos);
+      const pos = pickTooltipPosition(rect, tooltipRect.width, tooltipRect.height, step.pos || "bottom");
       tooltip.style.left = pos.left + "px";
       tooltip.style.top = pos.top + "px";
       tooltip.style.visibility = "visible";
 
       const tipRect = tooltip.getBoundingClientRect();
-      const targetPoint = getAnchor(freshRect, step.pos === "top" ? "top" : step.pos === "left" ? "left" : step.pos === "right" ? "right" : "bottom");
+      const targetPoint = getAnchor(rect, step.pos === "top" ? "top" : step.pos === "left" ? "left" : step.pos === "right" ? "right" : "bottom");
       const tipSide =
-        tipRect.top > freshRect.bottom ? "top" :
-        tipRect.bottom < freshRect.top ? "bottom" :
-        tipRect.left > freshRect.right ? "left" : "right";
+        tipRect.top > rect.bottom ? "top" :
+        tipRect.bottom < rect.top ? "bottom" :
+        tipRect.left > rect.right ? "left" : "right";
       const tooltipPoint = getAnchor(tipRect, tipSide);
       renderArrow(tooltipPoint, targetPoint);
     }
@@ -390,9 +593,13 @@
       }
     }
 
+    function onViewportChange() {
+      void renderStep();
+    }
+
     prev.addEventListener("click", function () {
       index = Math.max(0, index - 1);
-      renderStep();
+      void renderStep();
     });
 
     next.addEventListener("click", function () {
@@ -401,38 +608,39 @@
         return;
       }
       index += 1;
-      renderStep();
+      void renderStep();
     });
 
     close.addEventListener("click", destroy);
     overlay.addEventListener("click", destroy);
-    window.addEventListener("resize", renderStep);
-    window.addEventListener("scroll", renderStep, true);
+    window.addEventListener("resize", onViewportChange);
+    window.addEventListener("scroll", onViewportChange, true);
     document.addEventListener("keydown", onKeyDown);
 
-    renderStep();
+    void renderStep();
     next.focus();
   }
 
   function start() {
-    const rawSteps = buildSteps();
-    if (!rawSteps.length) return;
-    const steps = resolveSteps(rawSteps);
+    const steps = resolveSteps(buildSteps());
     if (!steps.length) return;
     injectStyles();
 
     const launcher = document.createElement("button");
     launcher.type = "button";
     launcher.className = "pt-launcher";
-    launcher.textContent = "Tutorial";
+    launcher.textContent = "Tutorial guiado";
     document.body.appendChild(launcher);
 
     let isOpen = false;
+
     function openTour() {
       if (isOpen) return;
       isOpen = true;
       launcher.style.display = "none";
+      const restoreUiState = captureUiState();
       runTour(steps, function () {
+        restoreUiState();
         isOpen = false;
         launcher.style.display = "";
       });
