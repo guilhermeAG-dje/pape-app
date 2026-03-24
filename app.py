@@ -4,6 +4,7 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func
 import os
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 from functools import wraps, lru_cache
 import hmac
 import secrets
@@ -327,10 +328,12 @@ class MedicationReminder(db.Model):
     # Multiple daily times for the same medicine (CSV: "08:00,14:00,20:00").
     times_csv = db.Column(db.String(64), nullable=False, default='')
     weekdays = db.Column(db.String(32), nullable=False, default='0,1,2,3,4,5,6')
+    schedule_mode = db.Column(db.String(16), nullable=False, default='daily')
     is_active = db.Column(db.Boolean, nullable=False, default=True)
     stock_count = db.Column(db.Integer, nullable=True)
     stock_low_threshold = db.Column(db.Integer, nullable=True)
     color = db.Column(db.String(16), nullable=False, default='teal')
+    pill_image_path = db.Column(db.String(255), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
@@ -383,6 +386,10 @@ def ensure_sqlite_schema():
         db.session.execute(db.text("ALTER TABLE medication_reminder ADD COLUMN stock_low_threshold INTEGER"))
     if not _sqlite_has_column('medication_reminder', 'color'):
         db.session.execute(db.text("ALTER TABLE medication_reminder ADD COLUMN color VARCHAR(16) NOT NULL DEFAULT 'teal'"))
+    if not _sqlite_has_column('medication_reminder', 'schedule_mode'):
+        db.session.execute(db.text("ALTER TABLE medication_reminder ADD COLUMN schedule_mode VARCHAR(16) NOT NULL DEFAULT 'daily'"))
+    if not _sqlite_has_column('medication_reminder', 'pill_image_path'):
+        db.session.execute(db.text("ALTER TABLE medication_reminder ADD COLUMN pill_image_path VARCHAR(255)"))
 
     # medication_log
     if not _sqlite_has_column('medication_log', 'patient_id'):
@@ -735,13 +742,23 @@ def log_event(action, detail=''):
 
 
 TIME_RE = re.compile(r'^([01]\d|2[0-3]):([0-5]\d)$')
+ALL_WEEKDAYS = [0, 1, 2, 3, 4, 5, 6]
+ALLOWED_PILL_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.webp'}
 
 
 def parse_weekdays(value):
+    if isinstance(value, str):
+        return list(_parse_weekdays_cached(value))
+    return parse_weekdays_strict(value) or ALL_WEEKDAYS[:]
+
+
+def parse_weekdays_strict(value):
     if isinstance(value, list):
         raw_items = value
+    elif isinstance(value, tuple):
+        raw_items = list(value)
     elif isinstance(value, str):
-        return list(_parse_weekdays_cached(value))
+        raw_items = [x.strip() for x in str(value).split(',') if x.strip()]
     else:
         raw_items = []
     days = []
@@ -752,7 +769,7 @@ def parse_weekdays(value):
             continue
         if 0 <= day <= 6 and day not in days:
             days.append(day)
-    return days or [0, 1, 2, 3, 4, 5, 6]
+    return days
 
 
 @lru_cache(maxsize=1024)
@@ -813,6 +830,78 @@ def times_from_row(row):
     return times
 
 
+def extract_request_list(payload, key):
+    values = []
+    if payload is not None and hasattr(payload, 'getlist'):
+        values.extend(payload.getlist(key))
+        values.extend(payload.getlist(f'{key}[]'))
+    if values:
+        return [v for v in values if v not in (None, '')]
+    if isinstance(payload, dict):
+        raw = payload.get(key)
+        if raw is None:
+            raw = payload.get(f'{key}[]')
+        if isinstance(raw, list):
+            return [v for v in raw if v not in (None, '')]
+        if raw not in (None, ''):
+            return [raw]
+    return []
+
+
+def normalize_schedule_mode(value, fallback='daily'):
+    mode = str(value or fallback or 'daily').strip().lower()
+    return 'weekly' if mode == 'weekly' else 'daily'
+
+
+def infer_schedule_mode(days):
+    normalized = sorted(parse_weekdays_strict(days))
+    return 'daily' if normalized == ALL_WEEKDAYS else 'weekly'
+
+
+def get_pill_upload_dir():
+    upload_dir = os.path.join(get_runtime_data_dir(), 'pill_images')
+    os.makedirs(upload_dir, exist_ok=True)
+    return upload_dir
+
+
+def pill_image_url(filename):
+    if not filename:
+        return None
+    return url_for('pill_media', filename=filename)
+
+
+def delete_pill_image(filename):
+    if not filename:
+        return
+    try:
+        path = os.path.join(get_pill_upload_dir(), filename)
+        if os.path.exists(path):
+            os.remove(path)
+    except Exception:
+        pass
+
+
+def save_pill_image(file_storage, previous_filename=None):
+    if not file_storage or not getattr(file_storage, 'filename', ''):
+        return previous_filename
+
+    original_name = str(file_storage.filename or '').strip()
+    _, ext = os.path.splitext(original_name)
+    ext = ext.lower()
+    if ext not in ALLOWED_PILL_IMAGE_EXTENSIONS:
+        raise ValueError('Formato de imagem invalido. Use PNG, JPG ou WEBP.')
+
+    safe_stem = secure_filename(os.path.splitext(original_name)[0]) or 'comprimido'
+    safe_stem = safe_stem[:60]
+    filename = f"{safe_stem}_{secrets.token_hex(8)}{ext}"
+    path = os.path.join(get_pill_upload_dir(), filename)
+    file_storage.save(path)
+
+    if previous_filename and previous_filename != filename:
+        delete_pill_image(previous_filename)
+    return filename
+
+
 def get_config(key, default=None):
     row = AppConfig.query.filter_by(key=key).first()
     if not row or row.value is None or row.value == '':
@@ -838,6 +927,7 @@ def format_weekdays(days):
 def serialize_reminder(r):
     days = parse_weekdays(r.weekdays)
     times = times_from_row(r)
+    schedule_mode = normalize_schedule_mode(getattr(r, 'schedule_mode', None), infer_schedule_mode(days))
     return {
         'id': r.id,
         'patient_id': r.patient_id,
@@ -847,10 +937,12 @@ def serialize_reminder(r):
         'time_hhmm': r.time_hhmm,
         'times': times,
         'weekdays': days,
+        'schedule_mode': schedule_mode,
         'is_active': bool(r.is_active),
         'stock_count': r.stock_count,
         'stock_low_threshold': r.stock_low_threshold,
         'color': r.color,
+        'pill_image_url': pill_image_url(getattr(r, 'pill_image_path', None)),
         'created_at': (r.created_at or datetime.utcnow()).isoformat()
     }
 
@@ -900,13 +992,17 @@ def reminders_create():
     medicine_name = (payload.get('medicine_name') or '').strip()[:120]
     dose = (payload.get('dose') or '').strip()[:80]
     time_hhmm = (payload.get('time_hhmm') or '').strip()
-    weekdays = parse_weekdays(payload.get('weekdays') or payload.get('days'))
-    times = parse_times(payload.get('times') or payload.get('times_csv') or '')
+    schedule_mode = normalize_schedule_mode(payload.get('schedule_mode'))
+    weekdays_raw = extract_request_list(payload, 'weekdays') or extract_request_list(payload, 'days')
+    weekdays = ALL_WEEKDAYS[:] if schedule_mode == 'daily' else parse_weekdays_strict(weekdays_raw)
+    times_input = extract_request_list(payload, 'times') or payload.get('times_csv') or ''
+    times = parse_times(times_input)
     if not times and time_hhmm:
         times = parse_times([time_hhmm])
     stock_count = payload.get('stock_count')
     stock_low_threshold = payload.get('stock_low_threshold')
     color = (payload.get('color') or 'teal').strip()[:16]
+    image_file = request.files.get('pill_image')
 
     if not medicine_name:
         return jsonify({'ok': False, 'message': 'Nome do medicamento e obrigatorio.'}), 400
@@ -914,6 +1010,8 @@ def reminders_create():
         return jsonify({'ok': False, 'message': 'Dose e obrigatoria.'}), 400
     if not times:
         return jsonify({'ok': False, 'message': 'Hora invalida. Use HH:MM.'}), 400
+    if schedule_mode == 'weekly' and not weekdays:
+        return jsonify({'ok': False, 'message': 'Selecione pelo menos um dia para o modo semanal.'}), 400
 
     def _to_int(v):
         if v is None or v == '':
@@ -930,6 +1028,11 @@ def reminders_create():
     if stock_low_i is not None and stock_low_i < 0:
         return jsonify({'ok': False, 'message': 'Limite de stock invalido.'}), 400
 
+    try:
+        pill_image_path = save_pill_image(image_file)
+    except ValueError as exc:
+        return jsonify({'ok': False, 'message': str(exc)}), 400
+
     row = MedicationReminder(
         patient_id=pid,
         patient_name=patient_name or 'Utente',
@@ -938,10 +1041,12 @@ def reminders_create():
         time_hhmm=times[0],
         times_csv=times_to_csv(times),
         weekdays=format_weekdays(weekdays),
+        schedule_mode=schedule_mode,
         is_active=True
         ,stock_count=stock_count_i
         ,stock_low_threshold=stock_low_i
         ,color=color or 'teal'
+        ,pill_image_path=pill_image_path
     )
     db.session.add(row)
     db.session.commit()
@@ -954,6 +1059,13 @@ def reminders_update(reminder_id):
         return jsonify({'ok': False, 'message': 'Sessao expirada. Atualize a pagina.'}), 400
     row = MedicationReminder.query.get_or_404(reminder_id)
     payload = request.get_json(silent=True) or request.form
+    current_days = parse_weekdays(row.weekdays)
+    schedule_mode = normalize_schedule_mode(
+        payload.get('schedule_mode') if 'schedule_mode' in payload else getattr(row, 'schedule_mode', None),
+        infer_schedule_mode(current_days)
+    )
+    weekdays_from_payload = 'weekdays' in payload or 'days' in payload or bool(extract_request_list(payload, 'weekdays')) or bool(extract_request_list(payload, 'days'))
+    image_file = request.files.get('pill_image')
 
     if 'is_active' in payload:
         raw = payload.get('is_active')
@@ -971,10 +1083,19 @@ def reminders_update(reminder_id):
             times.append(time_hhmm)
             times.sort()
         row.times_csv = times_to_csv(times)
-    if 'weekdays' in payload or 'days' in payload:
-        row.weekdays = format_weekdays(parse_weekdays(payload.get('weekdays') or payload.get('days')))
+    if 'schedule_mode' in payload:
+        row.schedule_mode = schedule_mode
+    if weekdays_from_payload or 'schedule_mode' in payload:
+        weekdays_raw = extract_request_list(payload, 'weekdays') or extract_request_list(payload, 'days')
+        if schedule_mode == 'daily':
+            row.weekdays = format_weekdays(ALL_WEEKDAYS)
+        else:
+            weekdays = parse_weekdays_strict(weekdays_raw)
+            if not weekdays:
+                return jsonify({'ok': False, 'message': 'Selecione pelo menos um dia para o modo semanal.'}), 400
+            row.weekdays = format_weekdays(weekdays)
     if 'times' in payload or 'times_csv' in payload:
-        times = parse_times(payload.get('times') or payload.get('times_csv') or '')
+        times = parse_times(extract_request_list(payload, 'times') or payload.get('times_csv') or '')
         if not times:
             return jsonify({'ok': False, 'message': 'Horas invalidas. Use HH:MM.'}), 400
         row.times_csv = times_to_csv(times)
@@ -991,6 +1112,14 @@ def reminders_update(reminder_id):
             return jsonify({'ok': False, 'message': 'Limite de stock invalido.'}), 400
     if 'color' in payload:
         row.color = (payload.get('color') or 'teal').strip()[:16] or 'teal'
+    if str(payload.get('remove_pill_image') or '').strip().lower() in ('1', 'true', 'yes', 'on'):
+        delete_pill_image(getattr(row, 'pill_image_path', None))
+        row.pill_image_path = None
+    if image_file and getattr(image_file, 'filename', ''):
+        try:
+            row.pill_image_path = save_pill_image(image_file, previous_filename=getattr(row, 'pill_image_path', None))
+        except ValueError as exc:
+            return jsonify({'ok': False, 'message': str(exc)}), 400
 
     db.session.commit()
     return jsonify({'ok': True, 'item': serialize_reminder(row)})
@@ -1001,6 +1130,7 @@ def reminders_delete(reminder_id):
     if not verify_public_write():
         return jsonify({'ok': False, 'message': 'Sessao expirada. Atualize a pagina.'}), 400
     row = MedicationReminder.query.get_or_404(reminder_id)
+    delete_pill_image(getattr(row, 'pill_image_path', None))
     db.session.delete(row)
     db.session.commit()
     return jsonify({'ok': True})
@@ -1064,6 +1194,7 @@ def reminders_import_csv():
                 time_hhmm=times[0],
                 times_csv=times_to_csv(times),
                 weekdays=format_weekdays(weekdays),
+                schedule_mode=infer_schedule_mode(weekdays),
                 is_active=True,
                 stock_count=stock_count_i,
                 stock_low_threshold=stock_low_i,
@@ -1285,7 +1416,8 @@ def schedule_today():
                 'color': r.color,
                 'status': status,
                 'stock_count': r.stock_count,
-                'stock_low_threshold': r.stock_low_threshold
+                'stock_low_threshold': r.stock_low_threshold,
+                'pill_image_url': pill_image_url(getattr(r, 'pill_image_path', None))
             })
 
     items.sort(key=lambda x: x['time_hhmm'])
@@ -1303,16 +1435,28 @@ def history_recent():
         .limit(3)
         .all()
     )
+    reminder_ids = [row.reminder_id for row in rows if getattr(row, 'reminder_id', None)]
+    reminder_map = {}
+    if reminder_ids:
+        reminder_rows = MedicationReminder.query.filter(MedicationReminder.id.in_(reminder_ids)).all()
+        reminder_map = {row.id: row for row in reminder_rows}
     items = []
     for row in rows:
+        reminder = reminder_map.get(row.reminder_id)
         items.append({
             'medicine_name': row.medicine_name,
             'dose': row.dose,
             'status': row.status,
             'late_minutes': row.late_minutes or 0,
-            'confirmed_at': row.confirmed_at.strftime('%Y-%m-%d %H:%M') if row.confirmed_at else ''
+            'confirmed_at': row.confirmed_at.strftime('%Y-%m-%d %H:%M') if row.confirmed_at else '',
+            'pill_image_url': pill_image_url(getattr(reminder, 'pill_image_path', None)) if reminder else None
         })
     return jsonify({'ok': True, 'items': items})
+
+
+@app.route('/media/pills/<path:filename>', methods=['GET'])
+def pill_media(filename):
+    return send_from_directory(get_pill_upload_dir(), filename)
 
 
 @app.route('/healthz', methods=['GET'])

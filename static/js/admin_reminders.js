@@ -18,6 +18,12 @@ const patientNameEl = document.getElementById("patient-current");
 const patientIdEl = document.getElementById("patient-id");
 const timesExtraGroup = form ? form.querySelector("[data-times-extra-group]") : null;
 const timesExtraAddBtn = form ? form.querySelector("[data-times-extra-add]") : null;
+const createScheduleInputs = form ? Array.from(form.querySelectorAll('input[name="schedule_mode"]')) : [];
+const createWeekdayPicker = form ? form.querySelector("[data-weekday-picker]") : null;
+const createPillInput = form ? form.querySelector('input[name="pill_image"]') : null;
+const createPillPreviewCard = form ? form.querySelector("[data-pill-preview-card]") : null;
+const createPillPreviewImg = form ? form.querySelector("[data-pill-preview]") : null;
+const createPillPreviewName = form ? form.querySelector("[data-pill-preview-name]") : null;
 const csrfTokenMeta = document.querySelector('meta[name="csrf-token"]');
 const csrfToken = csrfTokenMeta ? String(csrfTokenMeta.getAttribute("content") || "") : "";
 
@@ -229,12 +235,77 @@ function dayOptions() {
   ];
 }
 
+function getSelectedScheduleMode(inputs) {
+  const checked = (inputs || []).find((input) => input.checked);
+  return checked ? String(checked.value || "daily") : "daily";
+}
+
+function syncWeekdayPicker(inputs, picker) {
+  if (!picker) return;
+  picker.hidden = getSelectedScheduleMode(inputs) !== "weekly";
+}
+
+function resetWeekdayChecks(container) {
+  if (!container) return;
+  Array.from(container.querySelectorAll('input[name="weekdays"]')).forEach((input) => {
+    if (input instanceof HTMLInputElement) {
+      input.checked = false;
+    }
+  });
+}
+
+function updatePillPreview(input, card, image, label) {
+  if (!card || !image) return;
+  const previousUrl = card.dataset.objectUrl || "";
+  if (previousUrl) {
+    URL.revokeObjectURL(previousUrl);
+    delete card.dataset.objectUrl;
+  }
+
+  const file = input && input.files && input.files[0] ? input.files[0] : null;
+  if (!file) {
+    card.hidden = true;
+    image.removeAttribute("src");
+    if (label) label.textContent = "";
+    return;
+  }
+
+  const objectUrl = URL.createObjectURL(file);
+  card.dataset.objectUrl = objectUrl;
+  image.src = objectUrl;
+  if (label) label.textContent = file.name;
+  card.hidden = false;
+}
+
+function scheduleLabel(reminder) {
+  if (String(reminder.schedule_mode || "") === "weekly") {
+    return `Semanal: ${dayNames(reminder.weekdays || [])}`;
+  }
+  return "Diario";
+}
+
+function pillThumb(url, medicineName, className) {
+  if (!url) {
+    return `<div class="rem-admin-thumb rem-admin-thumb-placeholder ${className || ""}" aria-hidden="true">Sem foto</div>`;
+  }
+  return `<img class="rem-admin-thumb ${className || ""}" src="${escapeHtml(url)}" alt="Comprimido ${escapeHtml(medicineName || "")}" />`;
+}
+
+function syncEditWeekdayBlock(rowEl) {
+  if (!rowEl) return;
+  const checked = rowEl.querySelector('[data-edit-schedule-mode]:checked');
+  const daysBlock = rowEl.querySelector("[data-edit-days-block]");
+  if (!daysBlock) return;
+  const mode = checked instanceof HTMLInputElement ? String(checked.value || "daily") : "daily";
+  daysBlock.classList.toggle("is-hidden", mode !== "weekly");
+}
+
 function buildSearch(r) {
   const times = (r.times && r.times.length) ? r.times.join(" ") : r.time_hhmm;
   const days = dayNames(r.weekdays || []);
   const stock = (r.stock_count === null || r.stock_count === undefined) ? "" : String(r.stock_count);
   const stockLow = (r.stock_low_threshold === null || r.stock_low_threshold === undefined) ? "" : String(r.stock_low_threshold);
-  return normalizeText(`${r.medicine_name} ${r.dose} ${times} ${days} ${stock} ${stockLow}`);
+  return normalizeText(`${r.medicine_name} ${r.dose} ${times} ${days} ${scheduleLabel(r)} ${stock} ${stockLow}`);
 }
 
 function parseTimes(base, extra) {
@@ -376,6 +447,7 @@ function render() {
     const stockLowRaw = (r.stock_low_threshold === null || r.stock_low_threshold === undefined) ? "" : String(r.stock_low_threshold);
     const stockInfo = getStockInfo(r);
     const safeId = Number(r.id) || 0;
+    const scheduleMode = String(r.schedule_mode || "") === "weekly" ? "weekly" : "daily";
     const tags = [];
     tags.push(`<span class="tag ${r.is_active ? "tag-ok" : "tag-danger"}">${r.is_active ? "Ativo" : "Inativo"}</span>`);
     if (stockInfo.stock !== null) {
@@ -390,10 +462,11 @@ function render() {
     }
     row.innerHTML = `
       <div class="rem-admin-main">
+        ${pillThumb(r.pill_image_url, r.medicine_name)}
         <div class="rem-admin-time">${escapeHtml(times)}</div>
         <div>
           <div class="rem-admin-title">${escapeHtml(r.medicine_name)}</div>
-          <div class="muted">${escapeHtml(r.dose)} | ${escapeHtml(dayNames(r.weekdays))}</div>
+          <div class="muted">${escapeHtml(r.dose)} | ${escapeHtml(scheduleLabel(r))}</div>
           ${tags.length ? `<div class="rem-admin-tags">${tags.join("")}</div>` : ""}
           ${isEditing ? `
             <div class="rem-admin-edit">
@@ -418,7 +491,20 @@ function render() {
                   <input id="edit-stock-low-${safeId}" class="input-base" type="number" min="0" step="1" data-edit-stock-low value="${escapeHtml(stockLowRaw)}" placeholder="${Number.isFinite(stockDefaultThreshold) ? "Defeito: " + stockDefaultThreshold : "Sem limite"}" />
                   <p class="muted small">Deixe vazio para usar o limite global.</p>
                 </div>
-                <div class="edit-days">
+                <div class="edit-schedule">
+                  <span class="muted small">Frequencia</span>
+                  <div class="edit-days-list">
+                    <label class="edit-day">
+                      <input type="radio" name="edit-schedule-${safeId}" data-edit-schedule-mode value="daily" ${scheduleMode === "daily" ? "checked" : ""} />
+                      Diario
+                    </label>
+                    <label class="edit-day">
+                      <input type="radio" name="edit-schedule-${safeId}" data-edit-schedule-mode value="weekly" ${scheduleMode === "weekly" ? "checked" : ""} />
+                      Semanal
+                    </label>
+                  </div>
+                </div>
+                <div class="edit-days${scheduleMode === "weekly" ? "" : " is-hidden"}" data-edit-days-block>
                   <div class="edit-days-header">
                     <span class="muted small">Dias</span>
                     <div class="edit-day-actions">
@@ -426,13 +512,24 @@ function render() {
                       <button type="button" class="btn-outline btn-inline" data-action="days-none" data-id="${safeId}">Nenhum</button>
                     </div>
                   </div>
-                  <div class="edit-days-list">
+                  <div class="edit-days-list" data-edit-weekday-picker>
                     ${dayOptions().map((d) => `
                       <label class="edit-day">
                         <input type="checkbox" data-edit-weekday value="${d.value}" ${Array.isArray(r.weekdays) && r.weekdays.includes(d.value) ? "checked" : ""} />
                         ${d.label}
                       </label>
                     `).join("")}
+                  </div>
+                </div>
+                <div class="edit-pill-panel">
+                  <label>Imagem do comprimido</label>
+                  <div class="edit-pill-current">
+                    ${pillThumb(r.pill_image_url, r.medicine_name, "rem-admin-thumb-small")}
+                    <div>
+                      <div class="muted small">${r.pill_image_url ? "Imagem atual guardada." : "Sem imagem guardada."}</div>
+                      <input class="input-base" type="file" data-edit-pill-image accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" />
+                      <label class="edit-remove-pill"><input type="checkbox" data-edit-remove-pill /> Remover imagem atual</label>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -557,27 +654,35 @@ if (form) {
   form.addEventListener("submit", async (ev) => {
     ev.preventDefault();
     const fd = new FormData(form);
-    const selected = Array.from(form.querySelectorAll("input[type=checkbox]:checked")).map(el => Number(el.value));
+    const selected = Array.from(form.querySelectorAll('input[name="weekdays"]:checked')).map(el => Number(el.value));
     const baseTime = fd.get("time_hhmm");
     const extraTimes = collectExtraTimes(timesExtraGroup);
     const times = [String(baseTime || "").trim()].concat(extraTimes);
-    const payload = {
-      patient_id: currentPatientId,
-      medicine_name: fd.get("medicine_name"),
-      dose: fd.get("dose"),
-      time_hhmm: baseTime,
-      times: times,
-      weekdays: selected
-    };
+    const scheduleMode = getSelectedScheduleMode(createScheduleInputs);
+    const body = new FormData();
+    body.append("patient_id", String(currentPatientId || ""));
+    body.append("medicine_name", String(fd.get("medicine_name") || ""));
+    body.append("dose", String(fd.get("dose") || ""));
+    body.append("time_hhmm", String(baseTime || ""));
+    body.append("schedule_mode", scheduleMode);
+    times.forEach((time) => {
+      if (String(time || "").trim()) {
+        body.append("times", String(time).trim());
+      }
+    });
+    if (scheduleMode === "weekly") {
+      selected.forEach((day) => body.append("weekdays", String(day)));
+    }
     const stockCount = fd.get("stock_count");
     const stockLow = fd.get("stock_low_threshold");
-    if (String(stockCount || "").trim() !== "") payload.stock_count = Number(stockCount);
-    if (String(stockLow || "").trim() !== "") payload.stock_low_threshold = Number(stockLow);
+    if (String(stockCount || "").trim() !== "") body.append("stock_count", String(stockCount));
+    if (String(stockLow || "").trim() !== "") body.append("stock_low_threshold", String(stockLow));
+    const pillFile = createPillInput && createPillInput.files && createPillInput.files[0] ? createPillInput.files[0] : null;
+    if (pillFile) body.append("pill_image", pillFile);
 
     const res = await apiFetch("/api/reminders", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+      body
     });
     const data = await res.json();
     if (!res.ok || !data.ok) {
@@ -587,7 +692,9 @@ if (form) {
     showMsg("Alarme guardado.", "success");
     form.reset();
     setExtraTimes(timesExtraGroup, []);
-    form.querySelectorAll("input[type=checkbox]").forEach(el => (el.checked = true));
+    resetWeekdayChecks(createWeekdayPicker);
+    syncWeekdayPicker(createScheduleInputs, createWeekdayPicker);
+    updatePillPreview(createPillInput, createPillPreviewCard, createPillPreviewImg, createPillPreviewName);
     load();
   });
 
@@ -674,6 +781,8 @@ if (listEl) {
       const stockInput = rowEl.querySelector("[data-edit-stock]");
       const stockLowInput = rowEl.querySelector("[data-edit-stock-low]");
       const dayInputs = Array.from(rowEl.querySelectorAll("[data-edit-weekday]"));
+      const scheduleInputs = Array.from(rowEl.querySelectorAll("[data-edit-schedule-mode]"));
+      const scheduleMode = getSelectedScheduleMode(scheduleInputs);
       if (!(mainInput instanceof HTMLInputElement)) {
         return;
       }
@@ -681,7 +790,7 @@ if (listEl) {
         .filter((el) => el instanceof HTMLInputElement && el.checked)
         .map((el) => Number(el.value))
         .filter((val) => Number.isFinite(val));
-      if (!weekdays.length) {
+      if (scheduleMode === "weekly" && !weekdays.length) {
         showMsg("Selecione pelo menos um dia.", "error");
         return;
       }
@@ -695,40 +804,54 @@ if (listEl) {
         showMsg(parsed.message, "error");
         return;
       }
-      const payload = { time_hhmm: parsed.times[0], times: parsed.times, weekdays: weekdays };
+      const payload = new FormData();
+      payload.append("time_hhmm", parsed.times[0]);
+      payload.append("schedule_mode", scheduleMode);
+      parsed.times.forEach((time) => payload.append("times", time));
+      if (scheduleMode === "weekly") {
+        weekdays.forEach((day) => payload.append("weekdays", String(day)));
+      }
 
       if (stockInput instanceof HTMLInputElement) {
         const raw = stockInput.value.trim();
         if (!raw) {
-          payload.stock_count = "";
+          payload.append("stock_count", "");
         } else {
           const num = Number(raw);
           if (!Number.isFinite(num) || num < 0 || !Number.isInteger(num)) {
             showMsg("Stock invalido.", "error");
             return;
           }
-          payload.stock_count = num;
+          payload.append("stock_count", String(num));
         }
       }
 
       if (stockLowInput instanceof HTMLInputElement) {
         const raw = stockLowInput.value.trim();
         if (!raw) {
-          payload.stock_low_threshold = "";
+          payload.append("stock_low_threshold", "");
         } else {
           const num = Number(raw);
           if (!Number.isFinite(num) || num < 0 || !Number.isInteger(num)) {
             showMsg("Limite de stock invalido.", "error");
             return;
           }
-          payload.stock_low_threshold = num;
+          payload.append("stock_low_threshold", String(num));
         }
+      }
+
+      const removePillInput = rowEl.querySelector("[data-edit-remove-pill]");
+      if (removePillInput instanceof HTMLInputElement && removePillInput.checked) {
+        payload.append("remove_pill_image", "1");
+      }
+      const imageInput = rowEl.querySelector("[data-edit-pill-image]");
+      if (imageInput instanceof HTMLInputElement && imageInput.files && imageInput.files[0]) {
+        payload.append("pill_image", imageInput.files[0]);
       }
 
       const res = await apiFetch(`/api/reminders/${safeId}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        body: payload
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok) {
@@ -766,6 +889,15 @@ if (listEl) {
       }
       load();
     }
+  });
+
+  listEl.addEventListener("change", (ev) => {
+    const target = ev.target;
+    if (!(target instanceof HTMLElement)) return;
+    if (!target.matches("[data-edit-schedule-mode]")) return;
+    const rowEl = target.closest("[data-reminder-id]");
+    if (!(rowEl instanceof HTMLElement)) return;
+    syncEditWeekdayBlock(rowEl);
   });
 }
 
@@ -840,6 +972,18 @@ if (timesExtraGroup && !timesExtraGroup.querySelector("input[name='times_extra']
 if (timesExtraAddBtn) {
   timesExtraAddBtn.addEventListener("click", () => addExtraTimeInput(timesExtraGroup, ""));
 }
+
+createScheduleInputs.forEach((input) => {
+  input.addEventListener("change", () => syncWeekdayPicker(createScheduleInputs, createWeekdayPicker));
+});
+
+if (createPillInput) {
+  createPillInput.addEventListener("change", () => {
+    updatePillPreview(createPillInput, createPillPreviewCard, createPillPreviewImg, createPillPreviewName);
+  });
+}
+
+syncWeekdayPicker(createScheduleInputs, createWeekdayPicker);
 
 setupFilterControls();
 initPatient().then(load);

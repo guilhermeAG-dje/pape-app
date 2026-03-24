@@ -88,14 +88,26 @@
           <button type="button" class="btn-outline" data-times-extra-add>Adicionar hora</button>
           <input name="stock_count" type="number" min="0" step="1" placeholder="Stock (ex: 30) [opcional]" aria-label="Stock" />
           <input name="stock_low_threshold" type="number" min="0" step="1" placeholder="Alerta stock baixo (ex: 3) [opcional]" aria-label="Alerta de stock baixo" />
-          <div class="days-admin">
-            <label><input type="checkbox" value="1" checked> Seg</label>
-            <label><input type="checkbox" value="2" checked> Ter</label>
-            <label><input type="checkbox" value="3" checked> Qua</label>
-            <label><input type="checkbox" value="4" checked> Qui</label>
-            <label><input type="checkbox" value="5" checked> Sex</label>
-            <label><input type="checkbox" value="6" checked> Sab</label>
-            <label><input type="checkbox" value="0" checked> Dom</label>
+          <div class="schedule-mode-admin" data-schedule-mode-group>
+            <label class="schedule-chip"><input type="radio" name="schedule_mode" value="daily" checked> Diario</label>
+            <label class="schedule-chip"><input type="radio" name="schedule_mode" value="weekly"> Semanal</label>
+          </div>
+          <div class="weekday-picker-admin" data-weekday-picker hidden>
+            <p class="muted small">Escolhe os dias do modo semanal.</p>
+            <div class="days-admin">
+              <label><input type="checkbox" name="weekdays" value="1"> Seg</label>
+              <label><input type="checkbox" name="weekdays" value="2"> Ter</label>
+              <label><input type="checkbox" name="weekdays" value="3"> Qua</label>
+              <label><input type="checkbox" name="weekdays" value="4"> Qui</label>
+              <label><input type="checkbox" name="weekdays" value="5"> Sex</label>
+              <label><input type="checkbox" name="weekdays" value="6"> Sab</label>
+              <label><input type="checkbox" name="weekdays" value="0"> Dom</label>
+            </div>
+          </div>
+          <input name="pill_image" type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" aria-label="Imagem do comprimido" />
+          <div class="pill-preview-card admin-pill-preview" data-pill-preview-card hidden>
+            <img data-pill-preview alt="Pre-visualizacao do comprimido" />
+            <span class="muted small" data-pill-preview-name></span>
           </div>
           <div class="template-row">
             <button type="button" class="btn-outline" data-template="manha">Template: Manha</button>

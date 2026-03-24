@@ -22,6 +22,12 @@ const patientCurrentEl = document.getElementById("patient-current");
 const kioskTitle = document.getElementById("kiosk-title");
 const kioskTimesExtraList = document.getElementById("times-extra-list");
 const addTimeExtraBtn = document.getElementById("add-time-extra");
+const kioskScheduleInputs = kioskReminderForm ? Array.from(kioskReminderForm.querySelectorAll('input[name="schedule_mode"]')) : [];
+const kioskWeekdayPicker = kioskReminderForm ? kioskReminderForm.querySelector("[data-weekday-picker]") : null;
+const kioskPillInput = kioskReminderForm ? kioskReminderForm.querySelector('input[name="pill_image"]') : null;
+const kioskPillPreviewCard = kioskReminderForm ? kioskReminderForm.querySelector("[data-pill-preview-card]") : null;
+const kioskPillPreviewImg = kioskReminderForm ? kioskReminderForm.querySelector("[data-pill-preview]") : null;
+const kioskPillPreviewName = kioskReminderForm ? kioskReminderForm.querySelector("[data-pill-preview-name]") : null;
 const tabButtons = Array.from(document.querySelectorAll("[data-tab-target]"));
 const tabPanels = Array.from(document.querySelectorAll("[data-tab-panel]"));
 
@@ -166,6 +172,18 @@ if (addTimeExtraBtn) {
   addTimeExtraBtn.addEventListener("click", () => addExtraTimeInput(kioskTimesExtraList, ""));
 }
 
+kioskScheduleInputs.forEach((input) => {
+  input.addEventListener("change", () => syncWeekdayPicker(kioskScheduleInputs, kioskWeekdayPicker));
+});
+
+if (kioskPillInput) {
+  kioskPillInput.addEventListener("change", () => {
+    updatePillPreview(kioskPillInput, kioskPillPreviewCard, kioskPillPreviewImg, kioskPillPreviewName);
+  });
+}
+
+syncWeekdayPicker(kioskScheduleInputs, kioskWeekdayPicker);
+
 function applyPrefs() {
   document.body.classList.toggle("xl", !!prefs.xl);
   document.body.classList.toggle("hc", !!prefs.hc);
@@ -256,7 +274,64 @@ function dayNames(days) {
     5: "Sex",
     6: "Sab"
   };
-  return days.map(d => map[d]).join(", ");
+  return (days || []).map(d => map[d]).filter(Boolean).join(", ");
+}
+
+function getSelectedScheduleMode(inputs) {
+  const checked = (inputs || []).find((input) => input.checked);
+  return checked ? String(checked.value || "daily") : "daily";
+}
+
+function syncWeekdayPicker(inputs, picker) {
+  if (!picker) return;
+  picker.hidden = getSelectedScheduleMode(inputs) !== "weekly";
+}
+
+function resetWeekdayChecks(container) {
+  if (!container) return;
+  Array.from(container.querySelectorAll('input[name="weekdays"]')).forEach((input) => {
+    if (input instanceof HTMLInputElement) {
+      input.checked = false;
+    }
+  });
+}
+
+function updatePillPreview(input, card, image, label) {
+  if (!card || !image) return;
+  const previousUrl = card.dataset.objectUrl || "";
+  if (previousUrl) {
+    URL.revokeObjectURL(previousUrl);
+    delete card.dataset.objectUrl;
+  }
+
+  const file = input && input.files && input.files[0] ? input.files[0] : null;
+  if (!file) {
+    card.hidden = true;
+    image.removeAttribute("src");
+    if (label) label.textContent = "";
+    return;
+  }
+
+  const objectUrl = URL.createObjectURL(file);
+  card.dataset.objectUrl = objectUrl;
+  image.src = objectUrl;
+  if (label) label.textContent = file.name;
+  card.hidden = false;
+}
+
+function scheduleLabel(reminder) {
+  if (!reminder) return "";
+  if (String(reminder.schedule_mode || "") === "weekly") {
+    return `Semanal: ${dayNames(reminder.weekdays || [])}`;
+  }
+  return "Diario";
+}
+
+function pillThumb(url, medicineName, className) {
+  if (!url) {
+    return `<div class="pill-thumb pill-thumb-placeholder ${className || ""}" aria-hidden="true">Sem foto</div>`;
+  }
+  return `<img class="pill-thumb ${className || ""}" src="${escapeHtml(url)}" alt="Comprimido ${escapeHtml(medicineName || "")}">`;
 }
 
 function formatNextAlarmText() {
@@ -324,10 +399,11 @@ function renderReminders() {
     const safeId = Number(r.id) || 0;
     card.innerHTML = `
       <div class="reminder-top">
-        <div>
+        ${pillThumb(r.pill_image_url, r.medicine_name)}
+        <div class="reminder-copy">
           <div class="reminder-time">${escapeHtml(times)}</div>
           <div class="reminder-title">${escapeHtml(r.medicine_name)}</div>
-          <div class="reminder-meta">${escapeHtml(r.dose)} | ${escapeHtml(r.patient_name)} | ${escapeHtml(dayNames(r.weekdays))}</div>
+          <div class="reminder-meta">${escapeHtml(r.dose)} | ${escapeHtml(r.patient_name)} | ${escapeHtml(scheduleLabel(r))}</div>
         </div>
       </div>
       <div class="reminder-actions">
@@ -354,6 +430,7 @@ function renderTodaySchedule() {
     item.className = `today-item ${r.status || ""}`.trim();
     const stock = (r.stock_count === null || r.stock_count === undefined) ? "" : ` | Stock: ${r.stock_count}`;
     item.innerHTML = `
+      ${pillThumb(r.pill_image_url, r.medicine_name, "pill-thumb-small")}
       <div class="today-time">${escapeHtml(r.time_hhmm)}</div>
       <div class="today-main">
         <div class="today-title">${escapeHtml(r.medicine_name)}</div>
@@ -437,8 +514,13 @@ async function loadHistory() {
       const late = Number(item.late_minutes || 0);
       const status = item.status === "taken" ? (late > 0 ? `Atraso ${late} min` : "Em dia") : (item.status || "Sem estado");
       row.innerHTML = `
-        <div class="history-title">${escapeHtml(item.medicine_name)}</div>
-        <div class="history-meta">${escapeHtml(item.dose)} | ${escapeHtml(status)} | ${escapeHtml(item.confirmed_at || "")}</div>
+        <div class="history-row">
+          ${pillThumb(item.pill_image_url, item.medicine_name, "pill-thumb-small")}
+          <div>
+            <div class="history-title">${escapeHtml(item.medicine_name)}</div>
+            <div class="history-meta">${escapeHtml(item.dose)} | ${escapeHtml(status)} | ${escapeHtml(item.confirmed_at || "")}</div>
+          </div>
+        </div>
       `;
       historyListEl.appendChild(row);
     }
@@ -488,6 +570,7 @@ async function setCurrentPatient(id) {
   await loadReminders();
   await loadSchedule();
   await loadWeek();
+  await loadHistory();
 }
 
 async function loadCurrentPatientLabel() {
@@ -688,20 +771,36 @@ if (kioskReminderForm) {
     const base = String(fd.get("time_hhmm") || "").trim();
     const extraTimes = collectExtraTimes(kioskTimesExtraList);
     const times = [base].concat(extraTimes);
-    const payload = {
-      patient_id: patientId,
-      patient_name: (patientCurrentEl && patientCurrentEl.textContent) ? patientCurrentEl.textContent : "Utente",
-      medicine_name: fd.get("medicine_name"),
-      dose: fd.get("dose"),
-      time_hhmm: base,
-      times: times,
-      weekdays: [0, 1, 2, 3, 4, 5, 6],
-      stock_count: String(fd.get("stock_count") || "").trim() === "" ? null : Number(fd.get("stock_count"))
-    };
+    const scheduleMode = getSelectedScheduleMode(kioskScheduleInputs);
+    const selectedDays = Array.from(kioskReminderForm.querySelectorAll('input[name="weekdays"]:checked'))
+      .map((input) => Number(input.value))
+      .filter((value) => Number.isFinite(value));
+    const body = new FormData();
+    body.append("patient_id", String(patientId));
+    body.append("patient_name", (patientCurrentEl && patientCurrentEl.textContent) ? patientCurrentEl.textContent : "Utente");
+    body.append("medicine_name", String(fd.get("medicine_name") || ""));
+    body.append("dose", String(fd.get("dose") || ""));
+    body.append("time_hhmm", base);
+    body.append("schedule_mode", scheduleMode);
+    times.forEach((time) => {
+      if (String(time || "").trim()) {
+        body.append("times", String(time).trim());
+      }
+    });
+    if (scheduleMode === "weekly") {
+      selectedDays.forEach((day) => body.append("weekdays", String(day)));
+    }
+    const stockCount = String(fd.get("stock_count") || "").trim();
+    if (stockCount !== "") {
+      body.append("stock_count", stockCount);
+    }
+    const pillFile = kioskPillInput && kioskPillInput.files && kioskPillInput.files[0] ? kioskPillInput.files[0] : null;
+    if (pillFile) {
+      body.append("pill_image", pillFile);
+    }
     const res = await apiFetch("/api/reminders", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+      body
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.ok) {
@@ -714,6 +813,9 @@ if (kioskReminderForm) {
       kioskTimesExtraList.innerHTML = "";
       addExtraTimeInput(kioskTimesExtraList, "");
     }
+    resetWeekdayChecks(kioskWeekdayPicker);
+    syncWeekdayPicker(kioskScheduleInputs, kioskWeekdayPicker);
+    updatePillPreview(kioskPillInput, kioskPillPreviewCard, kioskPillPreviewImg, kioskPillPreviewName);
     await loadReminders();
     await loadSchedule();
     await loadWeek();
@@ -742,12 +844,18 @@ if (listEl) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ is_active: !r.is_active, patient_id: patientId })
       });
-      loadReminders();
+      await loadReminders();
+      await loadSchedule();
+      await loadWeek();
+      await loadHistory();
     }
 
     if (target.classList.contains("delete")) {
       await apiFetch(`/api/reminders/${id}`, { method: "DELETE" });
-      loadReminders();
+      await loadReminders();
+      await loadSchedule();
+      await loadWeek();
+      await loadHistory();
     }
   });
 }

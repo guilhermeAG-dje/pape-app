@@ -361,6 +361,35 @@ input:focus-visible {
   gap: 8px;
 }
 
+.schedule-mode-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.mode-chip,
+.weekday-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  padding: 9px 12px;
+  background: #fff;
+  font-weight: 800;
+}
+
+.weekday-picker {
+  display: grid;
+  gap: 10px;
+}
+
+.weekday-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .times-extra-list {
   display: grid;
   gap: 8px;
@@ -388,7 +417,8 @@ input:focus-visible {
 
 .kiosk-form input[type="text"],
 .kiosk-form input[type="time"],
-.kiosk-form input[type="number"] {
+.kiosk-form input[type="number"],
+.kiosk-form input[type="file"] {
   width: 100%;
   border: 2px solid var(--line);
   border-radius: 12px;
@@ -403,6 +433,41 @@ input:focus-visible {
   font-weight: 900;
 }
 
+.pill-preview-card {
+  display: grid;
+  grid-template-columns: 84px 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 2px dashed var(--line);
+  border-radius: 14px;
+  background: #f8fbfd;
+}
+
+.pill-preview-card img,
+.pill-thumb {
+  width: 84px;
+  height: 84px;
+  object-fit: cover;
+  border-radius: 18px;
+  border: 2px solid rgba(15, 118, 110, 0.14);
+  background: #ffffff;
+}
+
+.pill-thumb-small {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+}
+
+.pill-thumb-placeholder {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
 .today-list {
   display: grid;
   gap: 10px;
@@ -414,7 +479,7 @@ input:focus-visible {
   padding: 12px;
   display: grid;
   gap: 10px;
-  grid-template-columns: 100px 1fr;
+  grid-template-columns: 64px 100px 1fr;
   align-items: center;
   background: #f8fbfd;
 }
@@ -578,6 +643,13 @@ input:focus-visible {
   background: #f8fbfd;
 }
 
+.history-row {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  gap: 12px;
+  align-items: center;
+}
+
 .history-title {
   font-weight: 800;
   margin-bottom: 4px;
@@ -605,6 +677,7 @@ input:focus-visible {
   padding: 12px;
   display: grid;
   gap: 10px;
+  background: #fff;
 }
 
 .reminder-card.off {
@@ -614,9 +687,12 @@ input:focus-visible {
 
 .reminder-top {
   display: flex;
-  justify-content: space-between;
   gap: 12px;
   align-items: center;
+}
+
+.reminder-copy {
+  min-width: 0;
 }
 
 .reminder-time {
@@ -724,6 +800,18 @@ input:focus-visible {
 
   .next-actions {
     width: 100%;
+  }
+
+  .today-item {
+    grid-template-columns: 64px 1fr;
+  }
+
+  .today-time {
+    grid-column: 2;
+  }
+
+  .today-main {
+    grid-column: 1 / -1;
   }
 }
 

@@ -125,8 +125,37 @@
           <label>Outras horas</label>
           <div id="times-extra-list" class="times-extra-list"></div>
           <button id="add-time-extra" class="ghost-btn" type="button">Adicionar hora</button>
+          <label>Frequencia</label>
+          <div class="schedule-mode-row" data-schedule-mode-group>
+            <label class="mode-chip">
+              <input type="radio" name="schedule_mode" value="daily" checked>
+              Diario
+            </label>
+            <label class="mode-chip">
+              <input type="radio" name="schedule_mode" value="weekly">
+              Semanal
+            </label>
+          </div>
+          <div class="weekday-picker" data-weekday-picker hidden>
+            <p class="hint compact-hint">Escolhe os dias em que este medicamento deve aparecer.</p>
+            <div class="weekday-list">
+              <label class="weekday-chip"><input type="checkbox" name="weekdays" value="1"> Seg</label>
+              <label class="weekday-chip"><input type="checkbox" name="weekdays" value="2"> Ter</label>
+              <label class="weekday-chip"><input type="checkbox" name="weekdays" value="3"> Qua</label>
+              <label class="weekday-chip"><input type="checkbox" name="weekdays" value="4"> Qui</label>
+              <label class="weekday-chip"><input type="checkbox" name="weekdays" value="5"> Sex</label>
+              <label class="weekday-chip"><input type="checkbox" name="weekdays" value="6"> Sab</label>
+              <label class="weekday-chip"><input type="checkbox" name="weekdays" value="0"> Dom</label>
+            </div>
+          </div>
           <label>Stock</label>
           <input name="stock_count" type="number" min="0" step="1" placeholder="Ex: 30">
+          <label>Imagem do comprimido</label>
+          <input name="pill_image" type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp">
+          <div class="pill-preview-card" data-pill-preview-card hidden>
+            <img data-pill-preview alt="Pre-visualizacao do comprimido">
+            <span class="hint compact-hint" data-pill-preview-name></span>
+          </div>
           <button class="primary-btn" type="submit">Guardar</button>
         </form>
         <p id="kiosk-form-msg" class="hint" aria-live="polite"></p>

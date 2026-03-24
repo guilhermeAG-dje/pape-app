@@ -790,6 +790,28 @@ table th, table td {
   gap: 10px;
 }
 
+.schedule-mode-admin {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.schedule-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(11, 19, 40, 0.35);
+  font-weight: 700;
+}
+
+.weekday-picker-admin {
+  display: grid;
+  gap: 8px;
+}
+
 .patient-insights {
   display: grid;
   gap: 10px;
@@ -833,6 +855,26 @@ table th, table td {
   border: 1px solid var(--border);
   background: #0b1328;
   color: var(--text);
+}
+
+.pill-preview-card {
+  display: grid;
+  grid-template-columns: 84px 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px dashed var(--border);
+  background: rgba(11, 19, 40, 0.3);
+}
+
+.pill-preview-card img {
+  width: 84px;
+  height: 84px;
+  object-fit: cover;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: #111827;
 }
 
 .form-grid button {
@@ -1122,6 +1164,30 @@ table th, table td {
   color: var(--text);
 }
 
+.rem-admin-thumb {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: rgba(15, 23, 42, 0.8);
+  flex: 0 0 auto;
+}
+
+.rem-admin-thumb-small {
+  width: 60px;
+  height: 60px;
+  border-radius: 16px;
+}
+
+.rem-admin-thumb-placeholder {
+  display: grid;
+  place-items: center;
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-weight: 700;
+}
+
 .rem-admin-list {
   display: grid;
   gap: 12px;
@@ -1203,6 +1269,10 @@ table th, table td {
   grid-column: 1 / -1;
 }
 
+.edit-days.is-hidden {
+  display: none;
+}
+
 .edit-days-header {
   display: flex;
   align-items: center;
@@ -1231,6 +1301,28 @@ table th, table td {
   padding: 4px 10px;
   background: rgba(11, 19, 40, 0.45);
   font-size: 0.85rem;
+}
+
+.edit-pill-panel {
+  display: grid;
+  gap: 8px;
+  grid-column: 1 / -1;
+}
+
+.edit-pill-current {
+  display: grid;
+  grid-template-columns: 60px 1fr;
+  gap: 12px;
+  align-items: center;
+}
+
+.edit-remove-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 0.85rem;
+  color: var(--muted);
 }
 
 .rem-admin-edit-actions {
