@@ -109,6 +109,28 @@ def verify_csrf():
     return bool(session_token and request_token and hmac.compare_digest(session_token, request_token))
 
 
+def is_same_origin_request():
+    expected_origin = (request.host_url or '').rstrip('/')
+    for header_name in ('Origin', 'Referer'):
+        raw = (request.headers.get(header_name) or '').strip()
+        if not raw:
+            continue
+        try:
+            parsed = urlparse(raw)
+            incoming_origin = f'{parsed.scheme}://{parsed.netloc}'.rstrip('/')
+        except Exception:
+            continue
+        return bool(
+            expected_origin and incoming_origin
+            and hmac.compare_digest(incoming_origin, expected_origin)
+        )
+    return False
+
+
+def verify_public_write():
+    return verify_csrf() or is_same_origin_request()
+
+
 def _ip_rate_key(scope):
     return f'{scope}:{get_client_ip()}'
 
@@ -815,7 +837,7 @@ def reminders_list():
 
 @app.route('/api/reminders', methods=['POST'])
 def reminders_create():
-    if not verify_csrf():
+    if not verify_public_write():
         return jsonify({'ok': False, 'message': 'Sessao expirada. Atualize a pagina.'}), 400
     payload = request.get_json(silent=True) or request.form
     pid = resolve_patient_id(payload)
@@ -874,7 +896,7 @@ def reminders_create():
 
 @app.route('/api/reminders/<int:reminder_id>', methods=['PATCH'])
 def reminders_update(reminder_id):
-    if not verify_csrf():
+    if not verify_public_write():
         return jsonify({'ok': False, 'message': 'Sessao expirada. Atualize a pagina.'}), 400
     row = MedicationReminder.query.get_or_404(reminder_id)
     payload = request.get_json(silent=True) or request.form
@@ -922,7 +944,7 @@ def reminders_update(reminder_id):
 
 @app.route('/api/reminders/<int:reminder_id>', methods=['DELETE'])
 def reminders_delete(reminder_id):
-    if not verify_csrf():
+    if not verify_public_write():
         return jsonify({'ok': False, 'message': 'Sessao expirada. Atualize a pagina.'}), 400
     row = MedicationReminder.query.get_or_404(reminder_id)
     db.session.delete(row)
@@ -1038,7 +1060,7 @@ def config_set():
 
 @app.route('/api/alerts/escalate', methods=['POST'])
 def alert_escalate():
-    if not verify_csrf():
+    if not verify_public_write():
         return jsonify({'ok': False, 'message': 'Sessao expirada. Atualize a pagina.'}), 400
     if alert_rate_limited():
         return jsonify({'ok': False, 'message': 'Aguarde antes de enviar novo alerta.'}), 429
@@ -1083,7 +1105,7 @@ def admin_pin_login_api():
 
 @app.route('/api/reminders/<int:reminder_id>/confirm', methods=['POST'])
 def reminders_confirm(reminder_id):
-    if not verify_csrf():
+    if not verify_public_write():
         return jsonify({'ok': False, 'message': 'Sessao expirada. Atualize a pagina.'}), 400
     row = MedicationReminder.query.get_or_404(reminder_id)
     payload = request.get_json(silent=True) or request.form
@@ -1329,7 +1351,7 @@ def patient_current_get():
 
 @app.route('/api/patient/auto', methods=['POST'])
 def patient_auto():
-    if not verify_csrf():
+    if not verify_public_write():
         return jsonify({'ok': False, 'message': 'Sessao expirada. Atualize a pagina.'}), 400
     payload = request.get_json(silent=True) or request.form
 
@@ -1365,7 +1387,7 @@ def patient_auto():
 
 @app.route('/api/patient/current', methods=['POST'])
 def patient_current_set():
-    if not verify_csrf():
+    if not verify_public_write():
         return jsonify({'ok': False, 'message': 'Sessao expirada. Atualize a pagina.'}), 400
     payload = request.get_json(silent=True) or request.form
     raw = payload.get('patient_id')
