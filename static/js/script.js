@@ -31,6 +31,8 @@ const kioskPillPreviewImg = kioskReminderForm ? kioskReminderForm.querySelector(
 const kioskPillPreviewName = kioskReminderForm ? kioskReminderForm.querySelector("[data-pill-preview-name]") : null;
 const tabButtons = Array.from(document.querySelectorAll("[data-tab-target]"));
 const tabPanels = Array.from(document.querySelectorAll("[data-tab-panel]"));
+const btnCaregiverSummary = document.getElementById("btn-caregiver-summary");
+const btnCaregiverReport = document.getElementById("btn-caregiver-report");
 
 const modal = document.getElementById("alarm-modal");
 const alarmTitle = document.getElementById("alarm-title");
@@ -390,6 +392,69 @@ function formatNextAlarmText() {
   const when = best.when;
   const label = when.toLocaleDateString("pt-PT", { weekday: "short", day: "2-digit", month: "2-digit" });
   nextAlarmEl.textContent = `${best.time} - ${best.reminder.medicine_name} (${best.reminder.dose}) em ${label}`;
+}
+
+function buildCaregiverSummary() {
+  const patientName = (patientCurrentEl && patientCurrentEl.textContent ? patientCurrentEl.textContent.trim() : "") || "Utente";
+  const nextAlarm = (nextAlarmEl && nextAlarmEl.textContent ? nextAlarmEl.textContent.trim() : "") || "Sem próximo alarme.";
+  const activeCount = (activeCountEl && activeCountEl.textContent ? activeCountEl.textContent.trim() : "") || "0";
+  const takenToday = (takenTodayEl && takenTodayEl.textContent ? takenTodayEl.textContent.trim() : "") || "0";
+  const missedToday = (missedTodayEl && missedTodayEl.textContent ? missedTodayEl.textContent.trim() : "") || "0";
+  const adherenceToday = (adherenceTodayEl && adherenceTodayEl.textContent ? adherenceTodayEl.textContent.trim() : "") || "0%";
+  const dateLabel = new Date().toLocaleDateString("pt-PT", {
+    weekday: "long",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric"
+  });
+  const todayLines = todaySchedule.length
+    ? todaySchedule.slice(0, 4).map((item) => `- ${item.time_hhmm}: ${item.medicine_name} (${item.dose})`).join("\n")
+    : "- Sem tomas previstas para hoje.";
+
+  return [
+    `Resumo do LembreMe - ${dateLabel}`,
+    `Utente: ${patientName}`,
+    `Próximo alarme: ${nextAlarm}`,
+    `Alarmes ativos: ${activeCount}`,
+    `Tomas confirmadas hoje: ${takenToday}`,
+    `Tomas em falta hoje: ${missedToday}`,
+    `Adesão de hoje: ${adherenceToday}`,
+    "",
+    "Plano de hoje:",
+    todayLines
+  ].join("\n");
+}
+
+async function shareCaregiverSummary() {
+  const summary = buildCaregiverSummary();
+
+  if (navigator.share) {
+    await navigator.share({
+      title: "Resumo do LembreMe",
+      text: summary
+    });
+    return "Resumo pronto para partilhar.";
+  }
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    await navigator.clipboard.writeText(summary);
+    return "Resumo copiado. Agora podes colar no WhatsApp, email ou mensagem.";
+  }
+
+  const textArea = document.createElement("textarea");
+  textArea.value = summary;
+  textArea.setAttribute("readonly", "readonly");
+  textArea.style.position = "fixed";
+  textArea.style.opacity = "0";
+  document.body.appendChild(textArea);
+  textArea.focus();
+  textArea.select();
+  const copied = document.execCommand("copy");
+  document.body.removeChild(textArea);
+  if (!copied) {
+    throw new Error("copy failed");
+  }
+  return "Resumo copiado. Agora podes colar no WhatsApp, email ou mensagem.";
 }
 
 function renderReminders() {
@@ -930,6 +995,34 @@ if (btnCaregiver) {
     }
     if (kioskMsgEl) {
       kioskMsgEl.textContent = res.ok ? "Cuidador notificado." : (message || "Não foi possível notificar (configura email no Admin).");
+    }
+  });
+}
+
+if (btnCaregiverSummary) {
+  btnCaregiverSummary.addEventListener("click", async () => {
+    try {
+      await loadReminders();
+      await loadSchedule();
+      const message = await shareCaregiverSummary();
+      if (kioskMsgEl) {
+        kioskMsgEl.textContent = message;
+      }
+    } catch {
+      if (kioskMsgEl) {
+        kioskMsgEl.textContent = "Não foi possível partilhar o resumo agora.";
+      }
+    }
+  });
+}
+
+if (btnCaregiverReport) {
+  btnCaregiverReport.addEventListener("click", async () => {
+    setActiveTab("today", "week-panel");
+    await loadWeek();
+    await loadHistory();
+    if (kioskMsgEl) {
+      kioskMsgEl.textContent = "Abrimos o relatório com os últimos registos e a evolução semanal.";
     }
   });
 }
