@@ -24,17 +24,71 @@ if load_dotenv:
     load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = os.getenv('SECRET_KEY', 'supersecretkey')
+
+
+def get_runtime_data_dir():
+    render_disk_path = (os.getenv('RENDER_DISK_PATH') or '').strip()
+    if render_disk_path:
+        data_dir = os.path.join(render_disk_path, 'pape')
+    else:
+        data_dir = app.instance_path
+    os.makedirs(data_dir, exist_ok=True)
+    return data_dir
+
+
+def resolve_secret_key():
+    configured = (os.getenv('SECRET_KEY') or '').strip()
+    if configured:
+        return configured
+
+    secret_path = os.path.join(get_runtime_data_dir(), 'secret_key.txt')
+    try:
+        if os.path.exists(secret_path):
+            with open(secret_path, 'r', encoding='utf-8') as handle:
+                existing = handle.read().strip()
+            if existing:
+                return existing
+
+        generated = secrets.token_urlsafe(48)
+        with open(secret_path, 'w', encoding='utf-8') as handle:
+            handle.write(generated)
+        return generated
+    except Exception:
+        return secrets.token_urlsafe(48)
+
+
+def resolve_database_uri():
+    configured = (os.getenv('DATABASE_URL') or '').strip()
+    if configured:
+        if configured.startswith('postgres://'):
+            return f"postgresql://{configured[len('postgres://'):]}"
+        return configured
+
+    db_path = (os.getenv('DB_PATH') or '').strip()
+    if db_path:
+        if not os.path.isabs(db_path):
+            db_path = os.path.join(get_runtime_data_dir(), db_path)
+    else:
+        db_path = os.path.join(get_runtime_data_dir(), 'database.db')
+
+    db_path = os.path.abspath(db_path)
+    os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    return f"sqlite:///{db_path.replace(os.sep, '/')}"
+app.secret_key = resolve_secret_key()
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = os.getenv('SESSION_COOKIE_SAMESITE', 'Lax')
 app.config['SESSION_COOKIE_SECURE'] = os.getenv('SESSION_COOKIE_SECURE', '0') == '1'
 app.config['MAX_CONTENT_LENGTH'] = int(os.getenv('MAX_UPLOAD_MB', '10')) * 1024 * 1024
-if app.secret_key == 'supersecretkey':
-    app.logger.warning('SECRET_KEY em valor default. Configure SECRET_KEY no ambiente (.env).')
+if not (os.getenv('SECRET_KEY') or '').strip():
+    app.logger.warning('SECRET_KEY ausente no ambiente. Foi gerada uma chave local para esta instancia.')
 
 # --- ConfiguraÃ§Ã£o Database ---
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///database.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = resolve_database_uri()
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_pre_ping': True,
+    'pool_recycle': 300
+}
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
 
 db = SQLAlchemy(app)
@@ -439,11 +493,11 @@ def get_sqlite_db_path():
         return path
     if path.startswith('/'):
         path = path[1:]
-    return os.path.join(app.root_path, path or 'database.db')
+    return os.path.join(get_runtime_data_dir(), path or 'database.db')
 
 
 def ensure_backup_dir():
-    backup_dir = os.path.join(app.root_path, 'instance', 'backups')
+    backup_dir = os.path.join(get_runtime_data_dir(), 'backups')
     os.makedirs(backup_dir, exist_ok=True)
     return backup_dir
 
@@ -1261,6 +1315,16 @@ def history_recent():
     return jsonify({'ok': True, 'items': items})
 
 
+@app.route('/healthz', methods=['GET'])
+def healthz():
+    try:
+        db.session.execute(db.text('SELECT 1'))
+        return jsonify({'ok': True}), 200
+    except Exception:
+        app.logger.exception('Healthcheck falhou.')
+        return jsonify({'ok': False, 'message': 'Base de dados indisponivel.'}), 503
+
+
 @app.route('/api/stats/week', methods=['GET'])
 def stats_week():
     # Optimized 7-day adherence summary (preloads reminders + grouped log counts).
@@ -1863,7 +1927,7 @@ def admin_restore():
         return jsonify({'ok': False, 'message': 'Nao foi possivel ler o ficheiro enviado.'}), 400
     if header != b'SQLite format 3\x00':
         return jsonify({'ok': False, 'message': 'Ficheiro .db invalido para restore.'}), 400
-    temp_dir = os.path.join(app.root_path, 'instance', 'restore_tmp')
+    temp_dir = os.path.join(get_runtime_data_dir(), 'restore_tmp')
     os.makedirs(temp_dir, exist_ok=True)
     temp_path = os.path.join(temp_dir, f'restore_{datetime.now().strftime("%Y%m%d_%H%M%S")}.db')
     file.save(temp_path)
