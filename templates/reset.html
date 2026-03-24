@@ -14,8 +14,8 @@
   <header class="topbar">
     <div class="brand">
       <p class="eyebrow">LembreMe</p>
-      <h1>Reset de Atualização</h1>
-      <p class="sub">Isto limpa o cache e o Service Worker para deixar o Admin atualizar.</p>
+      <h1>Reset de Atualizacao</h1>
+      <p class="sub">Isto limpa o cache e o Service Worker para o kiosk e o admin atualizarem corretamente.</p>
       <p id="status" class="hint">A limpar...</p>
       <div class="kiosk-actions">
         <a class="ghost-btn" href="/">Voltar ao kiosk</a>
@@ -27,32 +27,30 @@
   <script>
     (async function () {
       const statusEl = document.getElementById("status");
-      function setStatus(t) { if (statusEl) statusEl.textContent = t; }
+      function setStatus(text) {
+        if (statusEl) statusEl.textContent = text;
+      }
 
       try {
-        // Clear CacheStorage
         if ("caches" in window) {
           const keys = await caches.keys();
-          await Promise.all(keys.map(k => caches.delete(k)));
+          await Promise.all(keys.map((key) => caches.delete(key)));
         }
 
-        // Unregister Service Workers
         if ("serviceWorker" in navigator) {
           const regs = await navigator.serviceWorker.getRegistrations();
-          await Promise.all(regs.map(r => r.unregister()));
+          await Promise.all(regs.map((reg) => reg.unregister()));
         }
 
-        try { localStorage.clear(); } catch (e) {}
-        try { sessionStorage.clear(); } catch (e) {}
+        try { localStorage.clear(); } catch (_) {}
+        try { sessionStorage.clear(); } catch (_) {}
 
-        setStatus("Feito. Agora abre o Admin: /admin_2026/login");
-      } catch (e) {
-        setStatus("Falhou o reset automático. Diz-me o erro da consola.");
+        setStatus("Feito. Agora volta a abrir a app.");
+      } catch (_) {
+        setStatus("Falhou o reset automatico. Diz-me o erro da consola.");
       }
     })();
   </script>
   <script src="/static/js/page_tutorial.js"></script>
 </body>
 </html>
-
-

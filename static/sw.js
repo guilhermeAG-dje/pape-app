@@ -1,4 +1,4 @@
-const CACHE = "lembreme-v5";
+const CACHE = "lembreme-v6";
 // Precache only the kiosk essentials. Admin assets are kept network-first to avoid stale UI.
 const ASSETS = [
   "/",
@@ -54,6 +54,12 @@ self.addEventListener("fetch", (event) => {
   }
 
   if (!sameOrigin) {
+    return;
+  }
+
+  // API responses must never be cached, otherwise Render can show stale data.
+  if (url.pathname.startsWith("/api/") || url.pathname === "/healthz") {
+    event.respondWith(fetch(req));
     return;
   }
 
