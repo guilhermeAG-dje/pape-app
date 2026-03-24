@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <meta name="theme-color" content="#0f766e">
-  <meta name="description" content="LembreMe - Alarme de medicacao para idosos">
-  <title>LembreMe - Alarme de Medicacao</title>
+  <meta name="description" content="LembreMe - Alarme de medicação para idosos">
+  <title>LembreMe - Alarme de Medicação</title>
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -17,8 +17,8 @@
   <header class="topbar">
     <div class="brand">
       <p class="eyebrow">LembreMe</p>
-      <h1 id="kiosk-title">Gestao rapida da medicacao</h1>
-      <p class="sub">Menos texto no ecra. Usa as abas para ir direto ao que precisas.</p>
+      <h1 id="kiosk-title">Gestão rápida da medicação</h1>
+      <p class="sub">Menos texto no ecrã. Usa as abas para ir direto ao que precisas.</p>
       <div class="hero-actions">
         <button class="quick-link" type="button" data-tab-target="meds" data-scroll-target="config-panel">Adicionar</button>
         <button class="quick-link" type="button" data-tab-target="today" data-scroll-target="today-panel">Plano de hoje</button>
@@ -30,7 +30,7 @@
     <div class="clock-card">
       <p>Hora atual</p>
       <div id="live-clock">00:00:00</div>
-      <button class="ghost-btn clock-shortcut" type="button" data-tab-target="summary" data-scroll-target="next-alarm-panel">Ver proximo alarme</button>
+      <button class="ghost-btn clock-shortcut" type="button" data-tab-target="summary" data-scroll-target="next-alarm-panel">Ver próximo alarme</button>
     </div>
   </header>
 
@@ -65,7 +65,7 @@
 
       <section id="next-alarm-panel" class="panel next-alarm">
         <div class="panel-header">
-          <h2>Proximo Alarme</h2>
+          <h2>Próximo Alarme</h2>
           <span class="panel-pill">Atalho principal</span>
         </div>
         <p id="next-alarm-text" aria-live="polite">Sem alarmes configurados.</p>
@@ -83,7 +83,7 @@
             <strong id="taken-today">0</strong>
           </div>
           <div class="stat">
-            <span>Adesao</span>
+            <span>Adesão</span>
             <strong id="adherence-today">0%</strong>
           </div>
           <div class="stat">
@@ -125,19 +125,20 @@
           <label>Outras horas</label>
           <div id="times-extra-list" class="times-extra-list"></div>
           <button id="add-time-extra" class="ghost-btn" type="button">Adicionar hora</button>
-          <label>Frequencia</label>
+          <label>Repetição</label>
           <div class="schedule-mode-row" data-schedule-mode-group>
             <label class="mode-chip">
               <input type="radio" name="schedule_mode" value="daily" checked>
-              Diario
+              Todos os dias
             </label>
             <label class="mode-chip">
               <input type="radio" name="schedule_mode" value="weekly">
-              Semanal
+              Dias específicos
             </label>
           </div>
-          <div class="weekday-picker" data-weekday-picker hidden>
-            <p class="hint compact-hint">Escolhe os dias em que este medicamento deve aparecer.</p>
+          <p class="hint compact-hint" data-schedule-summary>Este medicamento vai aparecer todos os dias.</p>
+          <div class="weekday-picker is-hidden" data-weekday-picker hidden>
+            <p class="hint compact-hint">Escolhe apenas os dias em que queres tomar este medicamento.</p>
             <div class="weekday-list">
               <label class="weekday-chip"><input type="checkbox" name="weekdays" value="1"> Seg</label>
               <label class="weekday-chip"><input type="checkbox" name="weekdays" value="2"> Ter</label>
@@ -153,7 +154,7 @@
           <label>Imagem do comprimido</label>
           <input name="pill_image" type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp">
           <div class="pill-preview-card" data-pill-preview-card hidden>
-            <img data-pill-preview alt="Pre-visualizacao do comprimido">
+            <img data-pill-preview alt="Pré-visualização do comprimido">
             <span class="hint compact-hint" data-pill-preview-name></span>
           </div>
           <button class="primary-btn" type="submit">Guardar</button>
@@ -184,21 +185,21 @@
 
       <section id="week-panel" class="panel week-panel">
         <div class="panel-header">
-          <h2>Ultimos 7 dias</h2>
-          <span class="panel-pill">Evolucao</span>
+          <h2>Últimos 7 dias</h2>
+          <span class="panel-pill">Evolução</span>
         </div>
         <div id="week-list" class="week-list"></div>
       </section>
 
       <section id="history-panel" class="panel history-panel">
         <div class="panel-header">
-          <h2>Historico Rapido</h2>
+          <h2>Histórico rápido</h2>
           <span class="panel-pill">Recentes</span>
         </div>
         <div id="history-list" class="history-list">
           <div class="history-item">
-            <div class="history-title">Sem historico ainda</div>
-            <div class="history-meta">As ultimas confirmacoes aparecem aqui.</div>
+              <div class="history-title">Sem histórico ainda</div>
+              <div class="history-meta">As últimas confirmações aparecem aqui.</div>
           </div>
         </div>
       </section>
@@ -210,20 +211,20 @@
           <h2>Modo Cuidador</h2>
           <span class="panel-pill">Partilha</span>
         </div>
-        <p class="hint compact-hint">Resumo rapido para familia ou profissionais.</p>
+          <p class="hint compact-hint">Resumo rápido para família ou profissionais.</p>
         <div class="kiosk-actions">
           <button id="btn-caregiver-summary" class="primary-btn" type="button">Enviar resumo</button>
-          <button id="btn-caregiver-report" class="ghost-btn" type="button">Ver relatorio</button>
+          <button id="btn-caregiver-report" class="ghost-btn" type="button">Ver relatório</button>
         </div>
       </section>
 
       <section id="help-panel" class="panel help-panel">
         <div class="panel-header">
-          <h2>Ajuda Rapida</h2>
+          <h2>Ajuda rápida</h2>
           <span class="panel-pill">Passos</span>
         </div>
         <ol class="help-steps">
-          <li>Abre a aba certa em vez de procurar no ecran todo.</li>
+          <li>Abre a aba certa em vez de procurar no ecrã todo.</li>
           <li>Guarda o medicamento e confirma a hora.</li>
           <li>Quando tocar, toca em "Confirmar toma".</li>
         </ol>
@@ -234,7 +235,7 @@
   <div id="alarm-modal" class="alarm-modal hidden" role="alertdialog" aria-modal="true">
     <div class="alarm-box">
       <p class="alarm-tag">ALERTA DE TOMA</p>
-      <h3 id="alarm-title">Hora da medicacao</h3>
+      <h3 id="alarm-title">Hora da medicação</h3>
       <p id="alarm-detail"></p>
       <div class="alarm-actions">
         <button id="btn-confirm" class="primary-btn">Confirmar toma</button>

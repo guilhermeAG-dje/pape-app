@@ -24,6 +24,7 @@ const kioskTimesExtraList = document.getElementById("times-extra-list");
 const addTimeExtraBtn = document.getElementById("add-time-extra");
 const kioskScheduleInputs = kioskReminderForm ? Array.from(kioskReminderForm.querySelectorAll('input[name="schedule_mode"]')) : [];
 const kioskWeekdayPicker = kioskReminderForm ? kioskReminderForm.querySelector("[data-weekday-picker]") : null;
+const kioskScheduleSummary = kioskReminderForm ? kioskReminderForm.querySelector("[data-schedule-summary]") : null;
 const kioskPillInput = kioskReminderForm ? kioskReminderForm.querySelector('input[name="pill_image"]') : null;
 const kioskPillPreviewCard = kioskReminderForm ? kioskReminderForm.querySelector("[data-pill-preview-card]") : null;
 const kioskPillPreviewImg = kioskReminderForm ? kioskReminderForm.querySelector("[data-pill-preview]") : null;
@@ -283,8 +284,17 @@ function getSelectedScheduleMode(inputs) {
 }
 
 function syncWeekdayPicker(inputs, picker) {
-  if (!picker) return;
-  picker.hidden = getSelectedScheduleMode(inputs) !== "weekly";
+  const mode = getSelectedScheduleMode(inputs);
+  if (picker) {
+    const isWeekly = mode === "weekly";
+    picker.hidden = !isWeekly;
+    picker.classList.toggle("is-hidden", !isWeekly);
+  }
+  if (kioskScheduleSummary) {
+    kioskScheduleSummary.textContent = mode === "weekly"
+      ? "Escolhe apenas os dias em que queres receber este lembrete."
+      : "Este medicamento vai aparecer todos os dias.";
+  }
 }
 
 function resetWeekdayChecks(container) {
@@ -324,7 +334,7 @@ function scheduleLabel(reminder) {
   if (String(reminder.schedule_mode || "") === "weekly") {
     return `Semanal: ${dayNames(reminder.weekdays || [])}`;
   }
-  return "Diario";
+  return "Todos os dias";
 }
 
 function pillThumb(url, medicineName, className) {
@@ -373,7 +383,7 @@ function formatNextAlarmText() {
   }
 
   if (!best) {
-    nextAlarmEl.textContent = "Sem alarme futuro nos proximos dias.";
+    nextAlarmEl.textContent = "Sem alarme futuro nos próximos dias.";
     return;
   }
 
@@ -388,7 +398,7 @@ function renderReminders() {
   }
   listEl.innerHTML = "";
   if (!reminders.length) {
-    listEl.innerHTML = "<p>Sem alarmes. Crie o primeiro acima.</p>";
+    listEl.innerHTML = "<p>Sem alarmes. Cria o primeiro acima.</p>";
     return;
   }
 
@@ -454,7 +464,7 @@ async function loadReminders() {
   } catch {
     reminders = [];
     renderReminders();
-    if (kioskMsgEl) kioskMsgEl.textContent = "Nao foi possivel carregar os alarmes.";
+    if (kioskMsgEl) kioskMsgEl.textContent = "Não foi possível carregar os alarmes.";
   }
 }
 
@@ -487,7 +497,7 @@ async function loadWeek() {
       weekListEl.appendChild(row);
     }
   } catch {
-    weekListEl.innerHTML = "<p>Sem dados dos ultimos 7 dias.</p>";
+    weekListEl.innerHTML = "<p>Sem dados dos últimos 7 dias.</p>";
   }
 }
 
@@ -502,8 +512,8 @@ async function loadHistory() {
     if (!items.length) {
       historyListEl.innerHTML = `
         <div class="history-item">
-          <div class="history-title">Sem historico ainda</div>
-          <div class="history-meta">As ultimas confirmacoes aparecem aqui.</div>
+          <div class="history-title">Sem histórico ainda</div>
+          <div class="history-meta">As últimas confirmações aparecem aqui.</div>
         </div>
       `;
       return;
@@ -527,8 +537,8 @@ async function loadHistory() {
   } catch {
     historyListEl.innerHTML = `
       <div class="history-item">
-        <div class="history-title">Historico indisponivel</div>
-        <div class="history-meta">Nao foi possivel carregar os registos recentes.</div>
+        <div class="history-title">Histórico indisponível</div>
+        <div class="history-meta">Não foi possível carregar os registos recentes.</div>
       </div>
     `;
   }
@@ -553,7 +563,7 @@ async function initKioskPatient() {
     if (kioskMsgEl) kioskMsgEl.textContent = "";
     return true;
   } catch {
-    if (kioskMsgEl) kioskMsgEl.textContent = "Nao foi possivel iniciar o kiosk.";
+    if (kioskMsgEl) kioskMsgEl.textContent = "Não foi possível iniciar o kiosk.";
     return false;
   }
 }
@@ -640,7 +650,7 @@ async function notify(text) {
 function showAlarm(reminder) {
   currentAlarm = reminder;
   if (alarmTitle) {
-    alarmTitle.textContent = "Hora da medicacao";
+    alarmTitle.textContent = "Hora da medicação";
   }
   if (alarmDetail) {
     alarmDetail.textContent = `${reminder.patient_name}: ${reminder.medicine_name} (${reminder.dose})`;
@@ -670,7 +680,7 @@ function showAlarm(reminder) {
   alarmEscalateTimer = setTimeout(() => {
     if (!currentAlarm) return;
     if (btnCaregiver) btnCaregiver.style.display = "inline-flex";
-    if (kioskMsgEl) kioskMsgEl.textContent = "Toma nao confirmada. Pode chamar o cuidador.";
+    if (kioskMsgEl) kioskMsgEl.textContent = "Toma não confirmada. Pode chamar o cuidador.";
   }, Math.max(1, escMin) * 60 * 1000);
 }
 
@@ -905,11 +915,11 @@ if (btnClose) {
 if (btnCaregiver) {
   btnCaregiver.addEventListener("click", async () => {
     if (!currentAlarm) return;
-    const body = `Alerta: toma nao confirmada.\nUtente: ${currentAlarm.patient_name}\nMedicamento: ${currentAlarm.medicine_name}\nDose: ${currentAlarm.dose}\nHora: ${currentAlarm.scheduled_time_hhmm || currentAlarm.time_hhmm}\n`;
+    const body = `Alerta: toma não confirmada.\nUtente: ${currentAlarm.patient_name}\nMedicamento: ${currentAlarm.medicine_name}\nDose: ${currentAlarm.dose}\nHora: ${currentAlarm.scheduled_time_hhmm || currentAlarm.time_hhmm}\n`;
     const res = await apiFetch("/api/alerts/escalate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ subject: "LembreMe - Alerta de Medicacao", body })
+      body: JSON.stringify({ subject: "LembreMe - Alerta de Medicação", body })
     });
     let message = "";
     try {
@@ -919,7 +929,7 @@ if (btnCaregiver) {
       message = "";
     }
     if (kioskMsgEl) {
-      kioskMsgEl.textContent = res.ok ? "Cuidador notificado." : (message || "Nao foi possivel notificar (configura email no Admin).");
+      kioskMsgEl.textContent = res.ok ? "Cuidador notificado." : (message || "Não foi possível notificar (configura email no Admin).");
     }
   });
 }
@@ -927,23 +937,23 @@ if (btnCaregiver) {
 async function requestWakeLock() {
   if (!("wakeLock" in navigator)) {
     if (kioskMsgEl) {
-      kioskMsgEl.textContent = "Este navegador nao suporta manter o ecran ligado.";
+      kioskMsgEl.textContent = "Este navegador não suporta manter o ecrã ligado.";
     }
     return;
   }
   try {
     wakeLock = await navigator.wakeLock.request("screen");
     if (kioskMsgEl) {
-      kioskMsgEl.textContent = "Ecran ligado: ativo.";
+      kioskMsgEl.textContent = "Ecrã ligado: ativo.";
     }
     wakeLock.addEventListener("release", () => {
       if (kioskMsgEl) {
-        kioskMsgEl.textContent = "Ecran ligado: desativado.";
+        kioskMsgEl.textContent = "Ecrã ligado: desativado.";
       }
     });
   } catch {
     if (kioskMsgEl) {
-      kioskMsgEl.textContent = "Nao foi possivel ativar o ecran ligado.";
+      kioskMsgEl.textContent = "Não foi possível ativar o ecrã ligado.";
     }
   }
 }
@@ -953,12 +963,12 @@ async function requestFullscreen() {
     if (!document.fullscreenElement) {
       await document.documentElement.requestFullscreen();
       if (kioskMsgEl) {
-        kioskMsgEl.textContent = "Ecran inteiro: ativo.";
+        kioskMsgEl.textContent = "Ecrã inteiro: ativo.";
       }
     }
   } catch {
     if (kioskMsgEl) {
-      kioskMsgEl.textContent = "Nao foi possivel entrar em ecran inteiro.";
+      kioskMsgEl.textContent = "Não foi possível entrar em ecrã inteiro.";
     }
   }
 }

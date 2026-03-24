@@ -5,11 +5,13 @@
   function buildSteps() {
     if (path === "/" || path.startsWith("/reset")) {
       return [
-        { selector: "#patient-current", title: "Utente", text: "Este navegador guarda o utente automaticamente. Em outro browser sera outro utente.", pos: "bottom" },
-        { selector: "#kiosk-reminder-form [name='medicine_name']", title: "Medicamento", text: "Comeca por escrever o nome do medicamento.", pos: "right" },
+        { selector: "#patient-current", title: "Utente", text: "Este navegador guarda o utente automaticamente. Noutro browser será outro utente.", pos: "bottom" },
+        { selector: "#kiosk-reminder-form [name='medicine_name']", title: "Medicamento", text: "Começa por escrever o nome do medicamento.", pos: "right" },
         { selector: "#kiosk-reminder-form [name='time_hhmm']", title: "Hora principal", text: "Define a primeira hora da toma.", pos: "right" },
+        { selector: "#kiosk-reminder-form [data-schedule-mode-group]", title: "Repetição", text: "Escolhe se queres tomar todos os dias ou apenas em dias específicos.", pos: "right" },
+        { selector: "#kiosk-reminder-form [name='pill_image']", title: "Imagem do comprimido", text: "Podes juntar uma foto para reconhecer melhor o comprimido certo.", pos: "right" },
         { selector: "#kiosk-reminder-form [name='stock_count']", title: "Stock (opcional)", text: "Preenche para receber alertas de stock baixo.", pos: "right" },
-        { selector: "#reminders-list", title: "Meus medicamentos", text: "Os teus alarmes aparecem aqui, por ordem de hora.", pos: "top" },
+        { selector: "#reminders-list", title: "Meus medicamentos", text: "Os teus alarmes aparecem aqui, por ordem de hora, com foto e tipo de repetição.", pos: "top" },
         { selector: "#btn-confirm-next", title: "Confirmar toma", text: "Quando for a hora, confirma aqui.", pos: "top" }
       ];
     }
@@ -19,7 +21,7 @@
         { selector: "#user", title: "Utilizador", text: "Insere o utilizador de admin.", pos: "right" },
         { selector: "#password", title: "Palavra-passe", text: "Insere a palavra-passe de admin.", pos: "right" },
         { selector: ".login-box button[type='submit']", title: "Entrar", text: "Valida as credenciais e abre o painel.", pos: "top" },
-        { selector: ".login-actions a[href='/admin_2026/pin']", title: "Entrar com PIN", text: "Alternativa rapida para entrar no admin.", pos: "top" }
+        { selector: ".login-actions a[href='/admin_2026/pin']", title: "Entrar com PIN", text: "Alternativa rápida para entrar no admin.", pos: "top" }
       ];
     }
 
@@ -34,9 +36,11 @@
     if (path.includes("/admin_2026/reminders")) {
       return [
         { selector: "#patient-current", title: "Utente deste browser", text: "Os alarmes ficam associados ao mesmo utente do kiosk.", pos: "bottom" },
-        { selector: "#reminder-form [name='medicine_name']", title: "Novo alarme", text: "Cria um novo alarme de medicacao.", pos: "right" },
+        { selector: "#reminder-form [name='medicine_name']", title: "Novo alarme", text: "Cria um novo alarme de medicação.", pos: "right" },
         { selector: "#reminder-form [name='time_hhmm']", title: "Hora principal", text: "Define a primeira hora da toma.", pos: "right" },
-        { selector: "#config-form", title: "Definicoes", text: "Ajusta PIN, email e configuracoes globais.", pos: "left" },
+        { selector: "#reminder-form [data-schedule-mode-group]", title: "Repetição", text: "Escolhe entre todos os dias ou dias específicos da semana.", pos: "right" },
+        { selector: "#reminder-form [name='pill_image']", title: "Imagem do comprimido", text: "Guarda uma foto para identificar rapidamente o comprimido.", pos: "right" },
+        { selector: "#config-form", title: "Definições", text: "Ajusta PIN, email e configurações globais.", pos: "left" },
         { selector: "#csv-form", title: "Importar CSV", text: "Importa alarmes em massa via ficheiro.", pos: "top" },
         { selector: "#reminders-filter", title: "Filtrar alarmes", text: "Pesquisa por medicamento, dose ou hora.", pos: "bottom" },
         { selector: "#reminders-active-toggle", title: "Ativos", text: "Mostra apenas alarmes ativos.", pos: "bottom" }
@@ -45,18 +49,18 @@
 
     if (path.includes("/admin_2026/users/")) {
       return [
-        { selector: ".user-overview", title: "Resumo", text: "Visao geral do utente neste dispositivo.", pos: "bottom" },
+        { selector: ".user-overview", title: "Resumo", text: "Visão geral do utente neste dispositivo.", pos: "bottom" },
         { selector: "#meds-filter", title: "Filtrar medicamentos", text: "Pesquisa por nome, dose, hora ou dias.", pos: "bottom" },
-        { selector: "#tomas-filter", title: "Filtrar historico", text: "Procura tomas por nome, estado, data ou hora.", pos: "bottom" },
-        { selector: ".list-chips", title: "Filtros rapidos", text: "Aplica filtros com um clique para atraso, em falta ou em dia.", pos: "bottom" },
-        { selector: "#tomas-list", title: "Historico de tomas", text: "Lista das tomas mais recentes (ate 300).", pos: "top" }
+        { selector: "#tomas-filter", title: "Filtrar histórico", text: "Procura tomas por nome, estado, data ou hora.", pos: "bottom" },
+        { selector: ".list-chips", title: "Filtros rápidos", text: "Aplica filtros com um clique para atraso, em falta ou em dia.", pos: "bottom" },
+        { selector: "#tomas-list", title: "Histórico de tomas", text: "Lista das tomas mais recentes (até 300).", pos: "top" }
       ];
     }
 
     if (path.includes("/admin_2026/dashboard")) {
       return [
         { selector: "#patient-current", title: "Utente deste browser", text: "Este painel segue o utente reconhecido neste navegador.", pos: "bottom" },
-        { selector: "#weekChart", title: "Adesao semanal", text: "Grafico de adesao dos ultimos 7 dias.", pos: "top" },
+        { selector: "#weekChart", title: "Adesão semanal", text: "Gráfico de adesão dos últimos 7 dias.", pos: "top" },
         { selector: "#today-table", title: "Agenda de hoje", text: "Lista das tomas previstas e estado atual.", pos: "top" },
         { selector: "#today-filter", title: "Filtrar agenda", text: "Pesquisa por medicamento, dose ou hora.", pos: "bottom" },
         { selector: "#dashboard-refresh", title: "Atualizar", text: "Atualiza os indicadores agora.", pos: "bottom" }
@@ -65,9 +69,9 @@
 
     if (path.startsWith("/admin_2026")) {
       return [
-        { selector: ".admin-actions a[href='/admin_2026/dashboard']", title: "Monitorizacao", text: "Abre indicadores e historico.", pos: "bottom" },
-        { selector: ".admin-actions a[href='/admin_2026/reminders']", title: "Alarmes", text: "Gestao de alarmes e configuracoes.", pos: "bottom" },
-        { selector: ".admin-actions a[href='/admin_2026/logout']", title: "Sair", text: "Termina a sessao de admin.", pos: "bottom" }
+        { selector: ".admin-actions a[href='/admin_2026/dashboard']", title: "Monitorização", text: "Abre indicadores e histórico.", pos: "bottom" },
+        { selector: ".admin-actions a[href='/admin_2026/reminders']", title: "Alarmes", text: "Gestão de alarmes e configurações.", pos: "bottom" },
+        { selector: ".admin-actions a[href='/admin_2026/logout']", title: "Sair", text: "Termina a sessão de admin.", pos: "bottom" }
       ];
     }
 

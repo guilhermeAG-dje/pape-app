@@ -812,6 +812,10 @@ table th, table td {
   gap: 8px;
 }
 
+.weekday-picker-admin.is-hidden {
+  display: none !important;
+}
+
 .patient-insights {
   display: grid;
   gap: 10px;

@@ -17,12 +17,12 @@
       <div class="admin-logo-fallback">LM</div>
     </div>
     <div>
-      <h1>Alarmes de Medicacao</h1>
+      <h1>Alarmes de Medicação</h1>
       <p class="muted">Configurar alarmes neste dispositivo.</p>
     </div>
     <div class="admin-actions">
       <a class="btn-outline" href="/">Voltar ao kiosk</a>
-      <a class="btn-outline" href="/admin_2026/dashboard">Monitorizacao</a>
+      <a class="btn-outline" href="/admin_2026/dashboard">Monitorização</a>
       <a class="btn-outline" href="/admin_2026/logout">Sair</a>
     </div>
   </header>
@@ -31,7 +31,7 @@
     <section class="admin-shell">
       <div class="shell-tabs" role="navigation" aria-label="Navegacao administrativa">
         <a class="shell-tab" href="/admin_2026">Avaliacao</a>
-        <a class="shell-tab" href="/admin_2026/dashboard">Monitorizacao</a>
+        <a class="shell-tab" href="/admin_2026/dashboard">Monitorização</a>
         <a class="shell-tab is-active" href="/admin_2026/reminders">Alarmes</a>
       </div>
 
@@ -51,14 +51,14 @@
           <p class="muted small" data-patient-caption>Todos os alarmes mostrados abaixo pertencem ao utente selecionado.</p>
           <div class="inline-actions">
             <a class="btn-primary" href="/admin_2026/reminders" data-patient-nav="reminders">Ver alarmes</a>
-            <a class="btn-outline" href="/admin_2026/dashboard" data-patient-nav="dashboard">Ver monitorizacao</a>
+            <a class="btn-outline" href="/admin_2026/dashboard" data-patient-nav="dashboard">Ver monitorização</a>
             <a class="btn-outline" href="/admin_2026/users/" data-patient-detail>Ficha do utente</a>
           </div>
         </article>
 
         <article class="context-card">
-          <div class="context-kicker">Ligacoes rapidas</div>
-          <h3>Relacao entre paginas</h3>
+          <div class="context-kicker">Ligações rápidas</div>
+          <h3>Relação entre páginas</h3>
           <div class="mini-stats">
             <div class="mini-stat">
               <strong>A</strong>
@@ -66,11 +66,11 @@
             </div>
             <div class="mini-stat">
               <strong>B</strong>
-              <span>Monitorizacao mostra execucao</span>
+              <span>Monitorização mostra execução</span>
             </div>
             <div class="mini-stat">
               <strong>C</strong>
-              <span>Ficha resume historico</span>
+              <span>Ficha resume histórico</span>
             </div>
           </div>
         </article>
@@ -89,11 +89,12 @@
           <input name="stock_count" type="number" min="0" step="1" placeholder="Stock (ex: 30) [opcional]" aria-label="Stock" />
           <input name="stock_low_threshold" type="number" min="0" step="1" placeholder="Alerta stock baixo (ex: 3) [opcional]" aria-label="Alerta de stock baixo" />
           <div class="schedule-mode-admin" data-schedule-mode-group>
-            <label class="schedule-chip"><input type="radio" name="schedule_mode" value="daily" checked> Diario</label>
-            <label class="schedule-chip"><input type="radio" name="schedule_mode" value="weekly"> Semanal</label>
+            <label class="schedule-chip"><input type="radio" name="schedule_mode" value="daily" checked> Todos os dias</label>
+            <label class="schedule-chip"><input type="radio" name="schedule_mode" value="weekly"> Dias específicos</label>
           </div>
-          <div class="weekday-picker-admin" data-weekday-picker hidden>
-            <p class="muted small">Escolhe os dias do modo semanal.</p>
+          <p class="muted small" data-schedule-summary>Este alarme vai repetir-se todos os dias.</p>
+          <div class="weekday-picker-admin is-hidden" data-weekday-picker hidden>
+            <p class="muted small">Escolhe apenas os dias em que este alarme deve aparecer.</p>
             <div class="days-admin">
               <label><input type="checkbox" name="weekdays" value="1"> Seg</label>
               <label><input type="checkbox" name="weekdays" value="2"> Ter</label>
@@ -106,11 +107,11 @@
           </div>
           <input name="pill_image" type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" aria-label="Imagem do comprimido" />
           <div class="pill-preview-card admin-pill-preview" data-pill-preview-card hidden>
-            <img data-pill-preview alt="Pre-visualizacao do comprimido" />
+            <img data-pill-preview alt="Pré-visualização do comprimido" />
             <span class="muted small" data-pill-preview-name></span>
           </div>
           <div class="template-row">
-            <button type="button" class="btn-outline" data-template="manha">Template: Manha</button>
+            <button type="button" class="btn-outline" data-template="manha">Template: Manhã</button>
             <button type="button" class="btn-outline" data-template="dia">Template: Dia</button>
             <button type="button" class="btn-outline" data-template="noite">Template: Noite</button>
           </div>
@@ -120,7 +121,7 @@
       </div>
 
       <div class="card">
-        <h3>Definicoes</h3>
+        <h3>Definições</h3>
         <form id="config-form" class="form-grid">
           <input name="default_patient_name" type="text" placeholder="Nome mostrado no kiosk (ex: D. Maria)" aria-label="Nome mostrado no kiosk" />
           <input name="caregiver_email" type="email" placeholder="Email do cuidador (opcional)" aria-label="Email do cuidador" />
@@ -152,7 +153,7 @@
       </div>
       <div class="list-chips">
         <button type="button" class="chip" id="reminders-active-toggle" aria-pressed="false">Ativos</button>
-        <button type="button" class="chip" data-stock-filter="low" aria-pressed="false">Stock baixo</button>
+          <button type="button" class="chip" data-stock-filter="low" aria-pressed="false">Stock baixo</button>
         <button type="button" class="chip" data-stock-filter="zero" aria-pressed="false">Sem stock</button>
       </div>
       <p class="muted small list-hint">Atalho: / foca o filtro. Esc limpa o campo.</p>

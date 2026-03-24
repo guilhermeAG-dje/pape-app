@@ -20,6 +20,7 @@ const timesExtraGroup = form ? form.querySelector("[data-times-extra-group]") : 
 const timesExtraAddBtn = form ? form.querySelector("[data-times-extra-add]") : null;
 const createScheduleInputs = form ? Array.from(form.querySelectorAll('input[name="schedule_mode"]')) : [];
 const createWeekdayPicker = form ? form.querySelector("[data-weekday-picker]") : null;
+const createScheduleSummary = form ? form.querySelector("[data-schedule-summary]") : null;
 const createPillInput = form ? form.querySelector('input[name="pill_image"]') : null;
 const createPillPreviewCard = form ? form.querySelector("[data-pill-preview-card]") : null;
 const createPillPreviewImg = form ? form.querySelector("[data-pill-preview]") : null;
@@ -203,7 +204,7 @@ async function initPatient() {
     }
   } catch (_err) {
     if (patientNameEl) {
-      patientNameEl.textContent = "Nao foi possivel identificar";
+      patientNameEl.textContent = "Não foi possível identificar";
     }
     if (patientIdEl) {
       patientIdEl.textContent = "--";
@@ -241,8 +242,17 @@ function getSelectedScheduleMode(inputs) {
 }
 
 function syncWeekdayPicker(inputs, picker) {
-  if (!picker) return;
-  picker.hidden = getSelectedScheduleMode(inputs) !== "weekly";
+  const mode = getSelectedScheduleMode(inputs);
+  if (picker) {
+    const isWeekly = mode === "weekly";
+    picker.hidden = !isWeekly;
+    picker.classList.toggle("is-hidden", !isWeekly);
+  }
+  if (createScheduleSummary) {
+    createScheduleSummary.textContent = mode === "weekly"
+      ? "Escolhe apenas os dias em que o alarme deve aparecer."
+      : "Este alarme vai repetir-se todos os dias.";
+  }
 }
 
 function resetWeekdayChecks(container) {
@@ -281,7 +291,7 @@ function scheduleLabel(reminder) {
   if (String(reminder.schedule_mode || "") === "weekly") {
     return `Semanal: ${dayNames(reminder.weekdays || [])}`;
   }
-  return "Diario";
+  return "Todos os dias";
 }
 
 function pillThumb(url, medicineName, className) {
@@ -448,7 +458,7 @@ function render() {
     const stockInfo = getStockInfo(r);
     const safeId = Number(r.id) || 0;
     const scheduleMode = String(r.schedule_mode || "") === "weekly" ? "weekly" : "daily";
-    const tags = [];
+        const tags = [];
     tags.push(`<span class="tag ${r.is_active ? "tag-ok" : "tag-danger"}">${r.is_active ? "Ativo" : "Inativo"}</span>`);
     if (stockInfo.stock !== null) {
       if (stockInfo.isZero) {
@@ -492,15 +502,15 @@ function render() {
                   <p class="muted small">Deixe vazio para usar o limite global.</p>
                 </div>
                 <div class="edit-schedule">
-                  <span class="muted small">Frequencia</span>
+                  <span class="muted small">Repetição</span>
                   <div class="edit-days-list">
                     <label class="edit-day">
                       <input type="radio" name="edit-schedule-${safeId}" data-edit-schedule-mode value="daily" ${scheduleMode === "daily" ? "checked" : ""} />
-                      Diario
+                      Todos os dias
                     </label>
                     <label class="edit-day">
                       <input type="radio" name="edit-schedule-${safeId}" data-edit-schedule-mode value="weekly" ${scheduleMode === "weekly" ? "checked" : ""} />
-                      Semanal
+                      Dias específicos
                     </label>
                   </div>
                 </div>
@@ -570,7 +580,7 @@ async function load() {
   } catch {
     reminders = [];
     render();
-    showMsg("Nao foi possivel carregar os alarmes.", "error");
+      showMsg("Não foi possível carregar os alarmes.", "error");
   }
 }
 
@@ -819,7 +829,7 @@ if (listEl) {
         } else {
           const num = Number(raw);
           if (!Number.isFinite(num) || num < 0 || !Number.isInteger(num)) {
-            showMsg("Stock invalido.", "error");
+            showMsg("Stock inválido.", "error");
             return;
           }
           payload.append("stock_count", String(num));
@@ -833,7 +843,7 @@ if (listEl) {
         } else {
           const num = Number(raw);
           if (!Number.isFinite(num) || num < 0 || !Number.isInteger(num)) {
-            showMsg("Limite de stock invalido.", "error");
+            showMsg("Limite de stock inválido.", "error");
             return;
           }
           payload.append("stock_low_threshold", String(num));
@@ -918,7 +928,7 @@ async function loadConfig() {
     }
     render();
   } catch {
-    showBox(configMsg, "Nao foi possivel carregar definicoes.", "error");
+    showBox(configMsg, "Não foi possível carregar definições.", "error");
   }
 }
 
@@ -943,7 +953,7 @@ if (configForm) {
       configCache = { ...configCache, ...payload };
       render();
     }
-    showBox(configMsg, res.ok ? "Definicoes guardadas." : "Erro ao guardar definicoes.", res.ok ? "success" : "error");
+    showBox(configMsg, res.ok ? "Definições guardadas." : "Erro ao guardar definições.", res.ok ? "success" : "error");
   });
 }
 
