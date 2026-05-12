@@ -18,6 +18,7 @@ const btnWakelock = document.getElementById("btn-wakelock");
 const btnXl = document.getElementById("btn-xl");
 const btnContrast = document.getElementById("btn-contrast");
 const btnVoice = document.getElementById("btn-voice");
+const btnEnableNotifications = document.getElementById("btn-enable-notifications");
 const patientCurrentEl = document.getElementById("patient-current");
 const kioskTitle = document.getElementById("kiosk-title");
 const kioskTimesExtraList = document.getElementById("times-extra-list");
@@ -37,6 +38,8 @@ const btnCaregiverReport = document.getElementById("btn-caregiver-report");
 const modal = document.getElementById("alarm-modal");
 const alarmTitle = document.getElementById("alarm-title");
 const alarmDetail = document.getElementById("alarm-detail");
+const alarmImageWrap = document.getElementById("alarm-image-wrap");
+const alarmImage = document.getElementById("alarm-image");
 const btnConfirm = document.getElementById("btn-confirm");
 const btnSnooze = document.getElementById("btn-snooze");
 const btnCaregiver = document.getElementById("btn-caregiver");
@@ -55,6 +58,7 @@ let wakeLock = null;
 
 let alarmRepeatTimer = null;
 let alarmEscalateTimer = null;
+const notificationSnoozes = {};
 const csrfTokenMeta = document.querySelector('meta[name="csrf-token"]');
 const csrfToken = csrfTokenMeta ? String(csrfTokenMeta.getAttribute("content") || "") : "";
 
@@ -729,6 +733,110 @@ async function notify(text) {
   }
 }
 
+function absoluteUrl(path) {
+  if (!path) return "";
+  try {
+    return new URL(path, window.location.origin).href;
+  } catch {
+    return "";
+  }
+}
+
+async function requestNotificationPermission() {
+  if (!("Notification" in window)) {
+    if (kioskMsgEl) kioskMsgEl.textContent = "Este navegador não suporta notificações.";
+    return false;
+  }
+
+  if (Notification.permission === "granted") {
+    if (kioskMsgEl) kioskMsgEl.textContent = "Avisos ativos neste dispositivo.";
+    return true;
+  }
+
+  if (Notification.permission === "denied") {
+    if (kioskMsgEl) kioskMsgEl.textContent = "As notificações estão bloqueadas nas definições do navegador.";
+    return false;
+  }
+
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission === "granted") {
+      if (kioskMsgEl) kioskMsgEl.textContent = "Avisos ativos. Quando tocar, vais ver o medicamento no ecrã.";
+      return true;
+    }
+  } catch {
+    // ignore
+  }
+
+  if (kioskMsgEl) kioskMsgEl.textContent = "Não foi possível ativar as notificações.";
+  return false;
+}
+
+function updateNotificationButtonState() {
+  if (!btnEnableNotifications) return;
+  if (!("Notification" in window)) {
+    btnEnableNotifications.textContent = "Avisos indisponíveis";
+    btnEnableNotifications.disabled = true;
+    return;
+  }
+  if (Notification.permission === "granted") {
+    btnEnableNotifications.textContent = "Avisos ativos";
+    btnEnableNotifications.disabled = true;
+    return;
+  }
+  if (Notification.permission === "denied") {
+    btnEnableNotifications.textContent = "Avisos bloqueados";
+    return;
+  }
+  btnEnableNotifications.textContent = "Ativar avisos";
+}
+
+async function notifyReminder(reminder) {
+  if (!reminder || !("Notification" in window) || Notification.permission !== "granted") {
+    return;
+  }
+
+  const imageUrl = absoluteUrl(reminder.pill_image_url);
+  const scheduledTime = reminder.scheduled_time_hhmm || reminder.time_hhmm || "";
+  const title = `Hora de ${reminder.medicine_name}`;
+  const body = `${reminder.patient_name || "Utente"} · ${reminder.dose || ""}${scheduledTime ? ` · ${scheduledTime}` : ""}`;
+  const data = {
+    reminder_id: reminder.id,
+    scheduled_time_hhmm: scheduledTime,
+    patient_id: patientId || reminder.patient_id || "",
+    url: `/?notification_action=open#summary`,
+    confirm_url: `/?notification_action=confirm&reminder_id=${encodeURIComponent(String(reminder.id))}&scheduled_time_hhmm=${encodeURIComponent(scheduledTime)}#summary`,
+    snooze_url: `/?notification_action=snooze&reminder_id=${encodeURIComponent(String(reminder.id))}&scheduled_time_hhmm=${encodeURIComponent(scheduledTime)}#summary`
+  };
+  const options = {
+    body,
+    icon: imageUrl || "/static/icons/icon-192.png",
+    badge: "/static/icons/icon-192.png",
+    image: imageUrl || undefined,
+    tag: `lembreme-${reminder.id}-${nowKeyDate()}-${scheduledTime}`,
+    renotify: true,
+    requireInteraction: true,
+    data,
+    actions: [
+      { action: "confirm", title: "Confirmar toma" },
+      { action: "snooze", title: "Adiar 5 min" }
+    ]
+  };
+
+  try {
+    if ("serviceWorker" in navigator) {
+      const reg = await navigator.serviceWorker.ready;
+      if (reg && reg.showNotification) {
+        await reg.showNotification(title, options);
+        return;
+      }
+    }
+    new Notification(title, options);
+  } catch {
+    // ignore notification failures; the in-app alarm still appears.
+  }
+}
+
 function showAlarm(reminder) {
   currentAlarm = reminder;
   if (alarmTitle) {
@@ -736,6 +844,16 @@ function showAlarm(reminder) {
   }
   if (alarmDetail) {
     alarmDetail.textContent = `${reminder.patient_name}: ${reminder.medicine_name} (${reminder.dose})`;
+  }
+  if (alarmImageWrap && alarmImage) {
+    const imageUrl = absoluteUrl(reminder.pill_image_url);
+    if (imageUrl) {
+      alarmImage.src = imageUrl;
+      alarmImageWrap.hidden = false;
+    } else {
+      alarmImage.removeAttribute("src");
+      alarmImageWrap.hidden = true;
+    }
   }
   if (modal) {
     modal.classList.remove("hidden");
@@ -747,7 +865,7 @@ function showAlarm(reminder) {
 
   const text = `${reminder.patient_name}. Hora de ${reminder.medicine_name}. ${reminder.dose}.`;
   speak(text);
-  notify(`${reminder.medicine_name} (${reminder.dose})`);
+  notifyReminder(reminder);
 
   // Repeat voice/notification every minute until confirmed/closed.
   if (alarmRepeatTimer) clearInterval(alarmRepeatTimer);
@@ -771,6 +889,10 @@ function closeAlarm() {
     modal.classList.add("hidden");
   }
   stopAlarmTone();
+  if (alarmImageWrap && alarmImage) {
+    alarmImage.removeAttribute("src");
+    alarmImageWrap.hidden = true;
+  }
   currentAlarm = null;
   if (alarmRepeatTimer) {
     clearInterval(alarmRepeatTimer);
@@ -803,6 +925,9 @@ function checkDueReminders() {
     if (snoozeUntil[r.id] && nowMs < snoozeUntil[r.id]) {
       continue;
     }
+    if (notificationSnoozes[r.id] && nowMs < notificationSnoozes[r.id]) {
+      continue;
+    }
     const key = `${r.id}-${dateKey}-${hhmm}`;
     if (firedKeys.has(key)) {
       continue;
@@ -811,6 +936,73 @@ function checkDueReminders() {
     showAlarm(Object.assign({}, r, { scheduled_time_hhmm: hhmm }));
     break;
   }
+}
+
+async function confirmReminderFromNotification(reminderId, scheduledTime) {
+  if (!reminderId) return;
+  const res = await apiFetch(`/api/reminders/${encodeURIComponent(String(reminderId))}/confirm`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ scheduled_time_hhmm: scheduledTime || null })
+  });
+  if (!res.ok) {
+    if (kioskMsgEl) kioskMsgEl.textContent = "Não foi possível confirmar a toma pela notificação.";
+    return;
+  }
+  if (kioskMsgEl) kioskMsgEl.textContent = "Toma confirmada pela notificação.";
+  closeAlarm();
+  await loadReminders();
+  await loadSchedule();
+  await loadWeek();
+  await loadHistory();
+}
+
+function applyNotificationActionFromUrl() {
+  const params = new URLSearchParams(window.location.search || "");
+  const action = params.get("notification_action");
+  if (!action) return;
+
+  const reminderId = params.get("reminder_id") || "";
+  const scheduledTime = params.get("scheduled_time_hhmm") || "";
+  const cleanUrl = `${window.location.pathname}${window.location.hash || ""}`;
+  window.history.replaceState(null, "", cleanUrl);
+
+  if (action === "confirm") {
+    confirmReminderFromNotification(reminderId, scheduledTime);
+    return;
+  }
+
+  if (action === "snooze" && reminderId) {
+    notificationSnoozes[reminderId] = Date.now() + 5 * 60 * 1000;
+    snoozeUntil[reminderId] = notificationSnoozes[reminderId];
+    closeAlarm();
+    if (kioskMsgEl) kioskMsgEl.textContent = "Toma adiada 5 minutos pela notificação.";
+  }
+}
+
+function handleNotificationAction(action, data) {
+  const reminderId = data && data.reminder_id ? data.reminder_id : "";
+  const scheduledTime = data && data.scheduled_time_hhmm ? data.scheduled_time_hhmm : "";
+
+  if (action === "confirm") {
+    confirmReminderFromNotification(reminderId, scheduledTime);
+    return;
+  }
+
+  if (action === "snooze" && reminderId) {
+    notificationSnoozes[reminderId] = Date.now() + 5 * 60 * 1000;
+    snoozeUntil[reminderId] = notificationSnoozes[reminderId];
+    closeAlarm();
+    if (kioskMsgEl) kioskMsgEl.textContent = "Toma adiada 5 minutos pela notificação.";
+  }
+}
+
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.addEventListener("message", (event) => {
+    const data = event.data || {};
+    if (data.type !== "LEMBREME_NOTIFICATION_ACTION") return;
+    handleNotificationAction(data.action, data.payload || {});
+  });
 }
 
 if (form) {
@@ -1121,6 +1313,13 @@ if (btnVoice) {
   });
 }
 
+if (btnEnableNotifications) {
+  btnEnableNotifications.addEventListener("click", async () => {
+    await requestNotificationPermission();
+    updateNotificationButtonState();
+  });
+}
+
 async function loadPublicConfig() {
   try {
     const res = await apiFetch("/api/public_config");
@@ -1136,6 +1335,7 @@ async function loadPublicConfig() {
 }
 
 applyPrefs();
+updateNotificationButtonState();
 updateClock();
 initKioskPatient().then(async (ok) => {
   if (!ok && !patientId) {
@@ -1144,6 +1344,7 @@ initKioskPatient().then(async (ok) => {
     await loadSchedule();
     await loadWeek();
     await loadHistory();
+    applyNotificationActionFromUrl();
     return;
   }
   await loadCurrentPatientLabel();
@@ -1151,6 +1352,7 @@ initKioskPatient().then(async (ok) => {
   await loadSchedule();
   await loadWeek();
   await loadHistory();
+  applyNotificationActionFromUrl();
 });
 loadPublicConfig();
 setInterval(updateClock, 1000);

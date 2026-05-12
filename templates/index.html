@@ -23,6 +23,7 @@
         <button class="quick-link" type="button" data-tab-target="meds" data-scroll-target="config-panel">Adicionar</button>
         <button class="quick-link" type="button" data-tab-target="today" data-scroll-target="today-panel">Plano de hoje</button>
         <button class="quick-link" type="button" data-tab-target="support" data-scroll-target="help-panel">Ajuda</button>
+        <button id="btn-enable-notifications" class="quick-link" type="button">Ativar avisos</button>
         <button id="install-app-btn" class="ghost-btn" type="button" hidden>Instalar app</button>
       </div>
       <p id="kiosk-message" class="hint" aria-live="polite"></p>
@@ -235,6 +236,9 @@
   <div id="alarm-modal" class="alarm-modal hidden" role="alertdialog" aria-modal="true">
     <div class="alarm-box">
       <p class="alarm-tag">ALERTA DE TOMA</p>
+      <div id="alarm-image-wrap" class="alarm-image-wrap" hidden>
+        <img id="alarm-image" alt="Imagem do comprimido">
+      </div>
       <h3 id="alarm-title">Hora da medicação</h3>
       <p id="alarm-detail"></p>
       <div class="alarm-actions">

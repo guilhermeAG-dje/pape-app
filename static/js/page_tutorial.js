@@ -86,6 +86,16 @@
           }
         },
         {
+          selector: "#btn-enable-notifications",
+          title: "Avisos no telemóvel",
+          text: "Ativa os avisos para receber notificações com o medicamento, a foto e os botões de confirmar ou adiar.",
+          pos: "bottom",
+          prepare: async () => {
+            activateAppTab("summary");
+            await waitFrame();
+          }
+        },
+        {
           selector: ".view-tab[data-tab-target='meds']",
           title: "Aba Medicamentos",
           text: "Agora vamos para a zona onde crias e geres os medicamentos.",
