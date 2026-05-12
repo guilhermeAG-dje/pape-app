@@ -29,12 +29,21 @@ app = Flask(__name__)
 
 def get_runtime_data_dir():
     render_disk_path = (os.getenv('RENDER_DISK_PATH') or '').strip()
+    candidates = []
     if render_disk_path:
-        data_dir = os.path.join(render_disk_path, 'pape')
-    else:
-        data_dir = app.instance_path
-    os.makedirs(data_dir, exist_ok=True)
-    return data_dir
+        candidates.append(os.path.join(render_disk_path, 'pape'))
+    candidates.append(app.instance_path)
+
+    for data_dir in candidates:
+        try:
+            os.makedirs(data_dir, exist_ok=True)
+            return data_dir
+        except OSError:
+            continue
+
+    fallback_dir = os.path.join(os.getcwd(), 'instance')
+    os.makedirs(fallback_dir, exist_ok=True)
+    return fallback_dir
 
 
 def resolve_secret_key():

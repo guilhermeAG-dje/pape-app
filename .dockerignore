@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+.env
+instance/
+*.db
+*.log
+.tools/
+.vscode/
+.idea/
+tmp_*.log
+run_pape.bat

@@ -3,7 +3,7 @@ services:
     name: pape
     runtime: python
     plan: free
-    buildCommand: pip install -r requirements.txt
+    buildCommand: python3 -m pip install --no-cache-dir -r requirements.txt
     healthCheckPath: /healthz
     startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1
     envVars:
@@ -13,6 +13,8 @@ services:
         generateValue: true
       - key: DB_PATH
         value: database.db
+      - key: RENDER_DISK_PATH
+        value: /var/lib/render/data
       - key: SESSION_COOKIE_SECURE
         value: "1"
       - key: TRUST_PROXY_HEADERS
