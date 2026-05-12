@@ -34,15 +34,15 @@
     </div>
   </header>
 
-  <nav class="view-tabs" aria-label="Navegacao principal">
-    <button class="view-tab is-active" type="button" data-tab-target="summary" aria-selected="true">Resumo</button>
-    <button class="view-tab" type="button" data-tab-target="meds" aria-selected="false">Medicamentos</button>
-    <button class="view-tab" type="button" data-tab-target="today" aria-selected="false">Rotina</button>
-    <button class="view-tab" type="button" data-tab-target="support" aria-selected="false">Apoio</button>
+  <nav class="view-tabs" aria-label="Navegação principal" role="tablist">
+    <button id="tab-summary" class="view-tab is-active" type="button" data-tab-target="summary" aria-selected="true" aria-controls="panel-summary" role="tab"><span aria-hidden="true">●</span> Resumo</button>
+    <button id="tab-meds" class="view-tab" type="button" data-tab-target="meds" aria-selected="false" aria-controls="panel-meds" role="tab"><span aria-hidden="true">+</span> Medicamentos</button>
+    <button id="tab-today" class="view-tab" type="button" data-tab-target="today" aria-selected="false" aria-controls="panel-today" role="tab"><span aria-hidden="true">✓</span> Rotina</button>
+    <button id="tab-support" class="view-tab" type="button" data-tab-target="support" aria-selected="false" aria-controls="panel-support" role="tab"><span aria-hidden="true">?</span> Apoio</button>
   </nav>
 
   <main class="layout">
-    <section class="panel-group" data-tab-panel="summary">
+    <section id="panel-summary" class="panel-group" data-tab-panel="summary" role="tabpanel" aria-labelledby="tab-summary">
       <section id="patient-panel" class="panel patient-panel">
         <div class="panel-header">
           <h2>Utente</h2>
@@ -109,7 +109,7 @@
       </section>
     </section>
 
-    <section class="panel-group" data-tab-panel="meds" hidden>
+    <section id="panel-meds" class="panel-group" data-tab-panel="meds" role="tabpanel" aria-labelledby="tab-meds" hidden>
       <section id="config-panel" class="panel config-panel">
         <div class="panel-header">
           <h2>Adicionar Medicamento</h2>
@@ -171,7 +171,7 @@
       </section>
     </section>
 
-    <section class="panel-group" data-tab-panel="today" hidden>
+    <section id="panel-today" class="panel-group" data-tab-panel="today" role="tabpanel" aria-labelledby="tab-today" hidden>
       <section id="today-panel" class="panel today-panel">
         <div class="panel-header">
           <h2>Hoje</h2>
@@ -205,7 +205,7 @@
       </section>
     </section>
 
-    <section class="panel-group" data-tab-panel="support" hidden>
+    <section id="panel-support" class="panel-group" data-tab-panel="support" role="tabpanel" aria-labelledby="tab-support" hidden>
       <section id="caregiver-panel" class="panel caregiver-panel">
         <div class="panel-header">
           <h2>Modo Cuidador</h2>

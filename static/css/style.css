@@ -176,12 +176,34 @@ h1 {
   padding: 11px 16px;
   font-weight: 900;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 44px;
 }
 
 .view-tab.is-active {
   background: var(--brand);
   color: #fff;
   border-color: var(--brand);
+}
+
+.view-tab span {
+  display: inline-grid;
+  width: 1.25rem;
+  height: 1.25rem;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(15, 118, 110, 0.12);
+  color: var(--brand-dark);
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
+.view-tab.is-active span {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
 }
 
 .panel-group {
@@ -785,9 +807,44 @@ input:focus-visible {
 }
 
 @media (max-width: 940px) {
+  body.alarm-page {
+    padding-bottom: calc(84px + env(safe-area-inset-bottom));
+  }
+
   .topbar {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .view-tabs {
+    position: fixed;
+    z-index: 20;
+    left: 10px;
+    right: 10px;
+    bottom: calc(10px + env(safe-area-inset-bottom));
+    width: auto;
+    margin: 0;
+    padding: 8px;
+    border: 1px solid rgba(213, 224, 232, 0.9);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: 0 16px 40px rgba(19, 37, 53, 0.18);
+    backdrop-filter: blur(12px);
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .view-tab {
+    min-width: 0;
+    min-height: 54px;
+    padding: 8px 6px;
+    border-radius: 14px;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.78rem;
+    line-height: 1.05;
+    overflow-wrap: anywhere;
   }
 
   .clock-card {

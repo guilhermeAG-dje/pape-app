@@ -1,7 +1,9 @@
 {
-  "name": "LembreMe - Alarme de Medicacao",
+  "name": "LembreMe - Alarme de Medicação",
   "short_name": "LembreMe",
-  "description": "Alarme de medicacao simples para idosos (modo kiosk).",
+  "description": "Alarme de medicação simples para idosos, com rotina diária e apoio ao cuidador.",
+  "lang": "pt-PT",
+  "dir": "ltr",
   "id": "/",
   "start_url": "/",
   "scope": "/",
@@ -25,6 +27,29 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Adicionar medicamento",
+      "short_name": "Adicionar",
+      "description": "Criar um novo alarme de medicação.",
+      "url": "/#meds",
+      "icons": [{ "src": "/static/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Plano de hoje",
+      "short_name": "Hoje",
+      "description": "Ver as tomas previstas para hoje.",
+      "url": "/#today",
+      "icons": [{ "src": "/static/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Apoio",
+      "short_name": "Apoio",
+      "description": "Abrir ajuda e partilha com cuidador.",
+      "url": "/#support",
+      "icons": [{ "src": "/static/icons/icon-192.png", "sizes": "192x192" }]
     }
   ]
 }

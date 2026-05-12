@@ -1,4 +1,4 @@
-const CACHE = "lembreme-v6";
+const CACHE = "lembreme-v7";
 const ASSETS = [
   "/",
   "/manifest.webmanifest",

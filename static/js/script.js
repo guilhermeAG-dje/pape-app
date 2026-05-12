@@ -62,6 +62,7 @@ const PREF_KEY = "lm_prefs_v1";
 const PATIENT_ID_KEY = "lm_kiosk_patient_id_v1";
 const PATIENT_NAME_KEY = "lm_kiosk_patient_name_v1";
 const prefs = loadPrefs();
+const TAB_NAMES = ["summary", "meds", "today", "support"];
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -192,20 +193,27 @@ function applyPrefs() {
   document.body.classList.toggle("hc", !!prefs.hc);
 }
 
-function setActiveTab(name, scrollTargetId) {
+function setActiveTab(name, scrollTargetId, options) {
   if (!name) return;
+  const opts = options || {};
+  const tabName = TAB_NAMES.includes(name) ? name : "summary";
 
   tabButtons.forEach((button) => {
-    const isActive = button.dataset.tabTarget === name;
+    const isActive = button.dataset.tabTarget === tabName;
     if (button.classList.contains("view-tab")) {
       button.classList.toggle("is-active", isActive);
       button.setAttribute("aria-selected", isActive ? "true" : "false");
+      button.tabIndex = isActive ? 0 : -1;
     }
   });
 
   tabPanels.forEach((panel) => {
-    panel.hidden = panel.dataset.tabPanel !== name;
+    panel.hidden = panel.dataset.tabPanel !== tabName;
   });
+
+  if (!opts.skipHash && window.location.hash !== `#${tabName}`) {
+    window.history.replaceState(null, "", `#${tabName}`);
+  }
 
   if (scrollTargetId) {
     const target = document.getElementById(scrollTargetId);
@@ -242,7 +250,16 @@ tabButtons.forEach((button) => {
   });
 });
 
-setActiveTab("summary");
+function tabFromHash() {
+  const raw = String(window.location.hash || "").replace("#", "");
+  return TAB_NAMES.includes(raw) ? raw : "summary";
+}
+
+window.addEventListener("hashchange", () => {
+  setActiveTab(tabFromHash(), null, { skipHash: true });
+});
+
+setActiveTab(tabFromHash(), null, { skipHash: true });
 
 async function fetchStats() {
   try {
