@@ -27,3 +27,9 @@ Thumbs.db
 *.log
 tmp_*.log
 run_pape.bat
+
+# Android local/build output
+android/.gradle/
+android/local.properties
+android/app/build/
+android/build/

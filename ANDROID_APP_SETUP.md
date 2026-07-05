@@ -1,77 +1,55 @@
 # PAPE no Android
 
-## O caminho mais simples
+Este projeto agora tem duas camadas:
 
-Este projeto ja esta montado como app web em Flask. O caminho mais facil para ter "uma app Android que atualiza quando mudares o codigo aqui" e:
+- a app web Flask/PWA, publicada no Render;
+- uma app Android nativa em `android/`, criada para alarmes de medicação mais fortes.
 
-1. Manter este projeto como a fonte principal.
-2. Publicar o Flask num servidor.
-3. Abrir esse endereco no Android e instalar como app (PWA).
-4. Mais tarde, se quiseres APK da Play Store, criar um wrapper Android por cima do mesmo endereco.
+## O que a app Android faz
 
-## Como fica o fluxo de trabalho
+- Abre o PAPE publicado em `https://pape-app.onrender.com/` dentro de uma WebView.
+- Reutiliza a sessão/cookies da WebView para buscar `/api/schedule/today`.
+- Agenda alarmes nativos com `AlarmManager`.
+- Mostra uma tela fullscreen com:
+  - hora da toma;
+  - nome do medicamento;
+  - dose/utente;
+  - imagem do medicamento, quando existir;
+  - botão `Foi tomado`;
+  - botão `Adiar 5 min`.
+- Ao tocar em `Foi tomado`, chama a API do PAPE para confirmar a toma.
 
-1. Alteras o codigo nesta pasta.
-2. Fazes deploy/publicacao do projeto para o servidor.
-3. A app instalada no Android abre a versao atualizada.
-4. Como o `service worker` esta em modo de atualizacao agressiva, os ficheiros novos entram sem teres de reconstruir tudo.
+## APK gerado
 
-## O que ja ficou preparado
-
-- `manifest.webmanifest` para instalacao no Android.
-- `sw.js` para cache e atualizacoes.
-- `static/js/pwa.js` para registar o `service worker` em todas as paginas importantes.
-- Metadados PWA nas paginas principais e admin.
-
-## O que ainda precisas fazer fora desta pasta
-
-### 1. Publicar o Flask
-
-Podes usar servicos como:
-
-- Render
-- Railway
-- PythonAnywhere
-- VPS com Nginx + Gunicorn
-
-### 2. Configurar URL publica
-
-Exemplo:
+O APK debug fica em:
 
 ```text
-https://meu-pape.onrender.com
+android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
-### 3. Instalar no Android
+## Permissões importantes no telemóvel
 
-No Chrome do Android:
+Depois de instalar, abre a app uma vez e permite:
 
-1. Abrir o site publicado.
-2. Tocar em "Adicionar ao ecra principal" ou "Instalar app".
-3. A app passa a abrir em modo standalone.
+- Notificações;
+- Alarmes e lembretes / alarmes exatos;
+- Mostrar no ecrã bloqueado, se o Android pedir.
 
-## Quando precisas gerar APK novo
+Em alguns telemóveis também convém desativar a otimização de bateria para esta app, porque fabricantes como Xiaomi, Samsung, Oppo e Huawei podem atrasar alarmes em segundo plano.
 
-Nao precisas gerar APK novo quando mudares:
+## Limite importante
 
-- HTML
-- CSS
-- JavaScript
-- rotas Flask
-- logica do backend
+Se o telemóvel estiver totalmente desligado, nenhuma app Android normal consegue tocar.  
+Se o ecrã estiver bloqueado/apagado, ou se estiveres noutra app, a app Android nativa foi preparada para aparecer como alarme fullscreen.
 
-So precisas de novo APK se mudares a parte nativa Android, por exemplo:
+## Como compilar nesta máquina
 
-- icone nativo do app wrapper
-- splash screen nativa
-- permissoes Android
-- notificacoes push nativas
+Nesta máquina usei o Android SDK local e Gradle descarregado em `.tools/`.
 
-## Se quiseres Play Store depois
+```powershell
+$env:JAVA_HOME='C:\Program Files\Eclipse Adoptium\jdk-21.0.3.9-hotspot'
+$env:PATH="$env:JAVA_HOME\bin;$env:PATH"
+.\.tools\gradle-8.14.3\bin\gradle.bat -p android assembleDebug
+```
 
-O proximo passo recomendado e criar uma app Android simples em:
-
-- Trusted Web Activity (melhor para publicar)
-- ou WebView (mais simples para testes)
-
-Essa app aponta para a tua URL publicada. Assim continuas a alterar este projeto e a app reflete as mudancas.
+Também podes abrir a pasta `android/` no Android Studio e carregar em Run.
