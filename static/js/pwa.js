@@ -89,6 +89,15 @@
     } catch (_) {}
   }
 
+  window.lembremeCheckNotificationsNow = async function () {
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      if (reg && reg.active) {
+        reg.active.postMessage({ type: "LEMBREME_CHECK_NOW" });
+      }
+    } catch (_) {}
+  };
+
   window.addEventListener("load", registerWorker);
 
   navigator.serviceWorker.addEventListener("controllerchange", function () {

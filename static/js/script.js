@@ -750,6 +750,9 @@ async function requestNotificationPermission() {
 
   if (Notification.permission === "granted") {
     if (kioskMsgEl) kioskMsgEl.textContent = "Avisos ativos neste dispositivo.";
+    if (typeof window.lembremeCheckNotificationsNow === "function") {
+      window.lembremeCheckNotificationsNow();
+    }
     return true;
   }
 
@@ -762,6 +765,9 @@ async function requestNotificationPermission() {
     const permission = await Notification.requestPermission();
     if (permission === "granted") {
       if (kioskMsgEl) kioskMsgEl.textContent = "Avisos ativos. Quando tocar, vais ver o medicamento no ecrã.";
+      if (typeof window.lembremeCheckNotificationsNow === "function") {
+        window.lembremeCheckNotificationsNow();
+      }
       return true;
     }
   } catch {
@@ -818,7 +824,7 @@ async function notifyReminder(reminder) {
     requireInteraction: true,
     data,
     actions: [
-      { action: "confirm", title: "Confirmar toma" },
+      { action: "confirm", title: "Foi tomado" },
       { action: "snooze", title: "Adiar 5 min" }
     ]
   };
@@ -980,11 +986,24 @@ function applyNotificationActionFromUrl() {
   }
 }
 
-function handleNotificationAction(action, data) {
+async function refreshMedicationViews() {
+  closeAlarm();
+  await loadReminders();
+  await loadSchedule();
+  await loadWeek();
+  await loadHistory();
+}
+
+function handleNotificationAction(action, data, extra) {
   const reminderId = data && data.reminder_id ? data.reminder_id : "";
   const scheduledTime = data && data.scheduled_time_hhmm ? data.scheduled_time_hhmm : "";
 
   if (action === "confirm") {
+    if (extra && extra.confirmed) {
+      if (kioskMsgEl) kioskMsgEl.textContent = "Toma confirmada pela notificaÃ§Ã£o.";
+      refreshMedicationViews();
+      return;
+    }
     confirmReminderFromNotification(reminderId, scheduledTime);
     return;
   }
@@ -1001,7 +1020,7 @@ if ("serviceWorker" in navigator) {
   navigator.serviceWorker.addEventListener("message", (event) => {
     const data = event.data || {};
     if (data.type !== "LEMBREME_NOTIFICATION_ACTION") return;
-    handleNotificationAction(data.action, data.payload || {});
+    handleNotificationAction(data.action, data.payload || {}, data.extra || {});
   });
 }
 
