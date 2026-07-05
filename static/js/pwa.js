@@ -63,6 +63,19 @@
         reg.waiting.postMessage({ type: "SKIP_WAITING" });
       }
 
+      try {
+        if ('periodicSync' in reg) {
+          const status = await navigator.permissions.query({ name: 'periodic-background-sync' });
+          if (status.state === 'granted') {
+            await reg.periodicSync.register('lembreme-check', { minInterval: 15 * 60 * 1000 });
+          }
+        } else if ('sync' in reg) {
+          await reg.sync.register('lembreme-check');
+        }
+      } catch (_err) {
+        // Background sync não suportado ou sem permissão.
+      }
+
       reg.addEventListener("updatefound", function () {
         const nextWorker = reg.installing;
         if (!nextWorker) return;

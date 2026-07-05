@@ -1,6 +1,15 @@
 (function () {
   const path = (window.location.pathname || "").toLowerCase();
   const MARGIN = 12;
+  const MOBILE_MAX_WIDTH = 900;
+
+  function isMobileScreen() {
+    return window.innerWidth < MOBILE_MAX_WIDTH || /Mobi|Android|iPhone|iPad|iPod|Mobile/.test(navigator.userAgent);
+  }
+
+  function shouldShowTutorial() {
+    return !isMobileScreen();
+  }
 
   function waitFrame() {
     return new Promise((resolve) => {
@@ -633,7 +642,7 @@
 
   function start() {
     const steps = resolveSteps(buildSteps());
-    if (!steps.length) return;
+    if (!steps.length || !shouldShowTutorial()) return;
     injectStyles();
 
     const launcher = document.createElement("button");
@@ -657,7 +666,6 @@
     }
 
     launcher.addEventListener("click", openTour);
-    openTour();
   }
 
   if (document.readyState === "loading") {
