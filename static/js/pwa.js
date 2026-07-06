@@ -3,13 +3,21 @@
   const installButton = document.getElementById("install-app-btn");
   let installPrompt = null;
 
+  function isMobileDevice() {
+    const userAgent = navigator.userAgent || "";
+    const touchCapable = navigator.maxTouchPoints > 0 || "ontouchstart" in window;
+    const smallScreen = window.matchMedia ? window.matchMedia("(max-width: 900px)").matches : window.innerWidth <= 900;
+    return /android|iphone|ipad|ipod|mobile/i.test(userAgent) || (touchCapable && smallScreen);
+  }
+
   if (!("serviceWorker" in navigator)) {
     return;
   }
 
   function toggleInstallButton(visible) {
     if (!installButton) return;
-    installButton.hidden = !visible;
+    const shouldShow = visible && isMobileDevice();
+    installButton.hidden = !shouldShow;
   }
 
   window.addEventListener("beforeinstallprompt", function (event) {
