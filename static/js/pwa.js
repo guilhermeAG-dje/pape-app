@@ -103,4 +103,50 @@
   navigator.serviceWorker.addEventListener("controllerchange", function () {
     window.location.reload();
   });
+
+  // Push subscription helper
+  async function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  }
+
+  async function subscribeToPush() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    try {
+      const res = await fetch('/api/push/public_key');
+      if (!res.ok) return;
+      const data = await res.json();
+      const vapidKey = data.public_key || '';
+      if (!vapidKey) return;
+      const reg = await navigator.serviceWorker.ready;
+      const existing = await reg.pushManager.getSubscription();
+      if (existing) {
+        // send to server to ensure stored
+        await fetch('/api/push/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(existing.toJSON()) });
+        return;
+      }
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: await urlBase64ToUint8Array(vapidKey)
+      });
+      await fetch('/api/push/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(sub.toJSON()) });
+    } catch (_err) {
+      // ignore
+    }
+  }
+
+  // Try to subscribe after load if permission granted
+  window.addEventListener('load', async () => {
+    try {
+      if (Notification && Notification.permission === 'granted') {
+        await subscribeToPush();
+      }
+    } catch (_) {}
+  });
 })();
