@@ -668,6 +668,26 @@ def push_android_register():
         return jsonify({'ok': False}), 500
 
 
+@app.route('/api/desktop/reminders', methods=['GET'])
+def desktop_reminders():
+    try:
+        now = datetime.now().strftime('%H:%M')
+        rows = MedicationReminder.query.filter_by(is_active=True).all()
+        due = []
+        for row in rows:
+            if row.time_hhmm == now:
+                due.append({
+                    'id': row.id,
+                    'medicine_name': row.medicine_name,
+                    'dose': row.dose,
+                    'time_hhmm': row.time_hhmm,
+                    'pill_image_url': pill_image_url(getattr(row, 'pill_image_path', None))
+                })
+        return jsonify({'ok': True, 'now': now, 'due': due})
+    except Exception:
+        return jsonify({'ok': False, 'message': 'desktop reminder check failed'}), 500
+
+
 def run_push_sender_job():
     # Find reminders due in the current minute and send push notifications to subscriptions.
     now = datetime.utcnow()
