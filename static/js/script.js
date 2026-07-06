@@ -804,7 +804,7 @@ async function notifyReminder(reminder) {
 
   const imageUrl = absoluteUrl(reminder.pill_image_url);
   const scheduledTime = reminder.scheduled_time_hhmm || reminder.time_hhmm || "";
-  const title = `Hora de ${reminder.medicine_name}`;
+  const title = `${reminder.medicine_name || "Medicamento"}`;
   const body = `${reminder.patient_name || "Utente"} · ${reminder.dose || ""}${scheduledTime ? ` · ${scheduledTime}` : ""}`;
   const data = {
     reminder_id: reminder.id,
@@ -825,7 +825,8 @@ async function notifyReminder(reminder) {
     data,
     actions: [
       { action: "confirm", title: "Foi tomado" },
-      { action: "snooze", title: "Adiar 5 min" }
+      { action: "snooze", title: "Adiar 5 min" },
+      { action: "dismiss", title: "Desativar" }
     ]
   };
 
@@ -983,6 +984,12 @@ function applyNotificationActionFromUrl() {
     snoozeUntil[reminderId] = notificationSnoozes[reminderId];
     closeAlarm();
     if (kioskMsgEl) kioskMsgEl.textContent = "Toma adiada 5 minutos pela notificação.";
+    return;
+  }
+
+  if (action === "dismiss") {
+    closeAlarm();
+    if (kioskMsgEl) kioskMsgEl.textContent = "Alarme desativado.";
   }
 }
 
@@ -1000,7 +1007,7 @@ function handleNotificationAction(action, data, extra) {
 
   if (action === "confirm") {
     if (extra && extra.confirmed) {
-      if (kioskMsgEl) kioskMsgEl.textContent = "Toma confirmada pela notificaÃ§Ã£o.";
+      if (kioskMsgEl) kioskMsgEl.textContent = "Toma confirmada pela notificação.";
       refreshMedicationViews();
       return;
     }
@@ -1013,6 +1020,12 @@ function handleNotificationAction(action, data, extra) {
     snoozeUntil[reminderId] = notificationSnoozes[reminderId];
     closeAlarm();
     if (kioskMsgEl) kioskMsgEl.textContent = "Toma adiada 5 minutos pela notificação.";
+    return;
+  }
+
+  if (action === "dismiss") {
+    closeAlarm();
+    if (kioskMsgEl) kioskMsgEl.textContent = "Alarme desativado.";
   }
 }
 

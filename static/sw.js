@@ -1,4 +1,4 @@
-const CACHE = "lembreme-v9";
+const CACHE = "lembreme-v10";
 const DEFAULT_ICON = "/static/icons/icon-192.png";
 const SNOOZE_MINUTES = 5;
 const RECENT_NOTIFICATION_KEYS = new Set();
@@ -43,6 +43,7 @@ function buildNotificationData(item, reminderId, time) {
     pill_image_url: item.pill_image_url || "",
     confirm_url: `/?notification_action=confirm&reminder_id=${encodeURIComponent(String(reminderId))}&scheduled_time_hhmm=${encodeURIComponent(time)}#summary`,
     snooze_url: `/?notification_action=snooze&reminder_id=${encodeURIComponent(String(reminderId))}&scheduled_time_hhmm=${encodeURIComponent(time)}#summary`,
+    dismiss_url: `/?notification_action=dismiss&reminder_id=${encodeURIComponent(String(reminderId))}&scheduled_time_hhmm=${encodeURIComponent(time)}#summary`,
     url: "/?notification_action=open#summary"
   };
 }
@@ -68,7 +69,8 @@ function buildMedicationNotification(item, reminderId, time, titlePrefix) {
       data: buildNotificationData(item, reminderId, time),
       actions: [
         { action: "confirm", title: "Foi tomado" },
-        { action: "snooze", title: `Adiar ${SNOOZE_MINUTES} min` }
+        { action: "snooze", title: `Adiar ${SNOOZE_MINUTES} min` },
+        { action: "dismiss", title: "Desativar" }
       ]
     }
   };
@@ -199,13 +201,20 @@ self.addEventListener("push", (event) => {
   }
 
   const title = payload.title || "Hora da medicacao";
-  const image = payload.image || payload.icon || DEFAULT_ICON;
-  const data = payload.data || {};
+  const image = payload.image || payload.image_url || payload.icon || DEFAULT_ICON;
+  const data = payload.data || {
+    reminder_id: payload.reminder_id,
+    scheduled_time_hhmm: payload.scheduled_time_hhmm,
+    confirm_url: payload.confirm_url,
+    snooze_url: payload.snooze_url,
+    dismiss_url: payload.dismiss_url,
+    url: payload.url
+  };
   const options = {
     body: payload.body || "Esta na hora de confirmar a toma.",
     icon: image,
     badge: DEFAULT_ICON,
-    image: payload.image || undefined,
+    image: image,
     tag: payload.tag || `lembreme-${Date.now()}`,
     timestamp: Date.now(),
     renotify: true,
@@ -215,7 +224,8 @@ self.addEventListener("push", (event) => {
     data,
     actions: [
       { action: "confirm", title: "Foi tomado" },
-      { action: "snooze", title: `Adiar ${SNOOZE_MINUTES} min` }
+      { action: "snooze", title: `Adiar ${SNOOZE_MINUTES} min` },
+      { action: "dismiss", title: "Desativar" }
     ]
   };
 
@@ -308,6 +318,11 @@ self.addEventListener("notificationclick", (event) => {
       const time = data.scheduled_time_hhmm || "";
       await wait(SNOOZE_MINUTES * 60 * 1000);
       await showMedicationNotification(data, reminderId, time, "Lembrete:");
+      return;
+    }
+
+    if (action === "dismiss") {
+      await notifyClients(action, data);
       return;
     }
 

@@ -625,6 +625,7 @@ def send_fcm(token, payload):
     if not key:
         return False
     url = 'https://fcm.googleapis.com/fcm/send'
+    actions = payload.get('actions') or []
     body = {
         'to': token,
         'priority': 'high',
@@ -634,8 +635,11 @@ def send_fcm(token, payload):
         },
         'data': payload.get('data', {})
     }
-    if payload.get('image_url'):
-        body['notification']['image'] = payload.get('image_url')
+    image = payload.get('image') or payload.get('image_url')
+    if image:
+        body['notification']['image'] = image
+    if actions:
+        body['notification']['actions'] = actions
     try:
         resp = requests.post(url, json=body, headers={'Authorization': f'key={key}', 'Content-Type': 'application/json'}, timeout=10)
         if resp.status_code == 200:
@@ -703,22 +707,50 @@ def run_push_sender_job():
         if hhmm not in times:
             continue
         # prepare payload
+        image_url = pill_image_url(getattr(r, 'pill_image_path', None))
         title = f'Hora de {r.medicine_name}'
-        body = f'{r.patient_name} · {r.dose} · {hhmm}'
+        body = f'{r.medicine_name} · {r.patient_name} · {r.dose} · {hhmm}'
         payload = {
             'title': title,
             'body': body,
+            'image': image_url,
+            'image_url': image_url,
             'reminder_id': r.id,
             'scheduled_time_hhmm': hhmm,
             'url': url_for('index', _external=True) + '?notification_action=open#summary',
-            'image_url': pill_image_url(getattr(r, 'pill_image_path', None))
+            'confirm_url': url_for('index', _external=True) + f'?notification_action=confirm&reminder_id={r.id}&scheduled_time_hhmm={hhmm}#summary',
+            'snooze_url': url_for('index', _external=True) + f'?notification_action=snooze&reminder_id={r.id}&scheduled_time_hhmm={hhmm}#summary',
+            'dismiss_url': url_for('index', _external=True) + f'?notification_action=dismiss&reminder_id={r.id}&scheduled_time_hhmm={hhmm}#summary',
+            'data': {
+                'reminder_id': r.id,
+                'scheduled_time_hhmm': hhmm,
+                'confirm_url': url_for('index', _external=True) + f'?notification_action=confirm&reminder_id={r.id}&scheduled_time_hhmm={hhmm}#summary',
+                'snooze_url': url_for('index', _external=True) + f'?notification_action=snooze&reminder_id={r.id}&scheduled_time_hhmm={hhmm}#summary',
+                'dismiss_url': url_for('index', _external=True) + f'?notification_action=dismiss&reminder_id={r.id}&scheduled_time_hhmm={hhmm}#summary',
+                'url': url_for('index', _external=True) + '?notification_action=open#summary'
+            },
+            'actions': [
+                {'action': 'confirm', 'title': 'Foi tomado'},
+                {'action': 'snooze', 'title': 'Adiar 5 min'},
+                {'action': 'dismiss', 'title': 'Desativar'}
+            ]
         }
         subs = PushSubscription.query.filter((PushSubscription.patient_id == r.patient_id) | (PushSubscription.patient_id == None)).all()
         for s in subs:
             try:
                 if getattr(s, 'platform', None) == 'android' and s.endpoint:
                     # send FCM to Android token
-                    send_fcm(s.endpoint, {'title': payload['title'], 'body': payload['body'], 'image_url': payload.get('image_url'), 'data': {'reminder_id': r.id, 'scheduled_time_hhmm': hhmm}})
+                    send_fcm(
+                        s.endpoint,
+                        {
+                            'title': payload['title'],
+                            'body': payload['body'],
+                            'image_url': payload.get('image_url'),
+                            'image': payload.get('image'),
+                            'data': payload.get('data', {}),
+                            'actions': payload.get('actions', [])
+                        }
+                    )
                 else:
                     send_web_push(s, payload)
             except Exception:
