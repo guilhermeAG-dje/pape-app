@@ -1,8 +1,8 @@
 Desktop wrapper for Pape
 
-This small Windows desktop app opens the Pape web app and shows a full-screen alarm window when a reminder is due.
+This Windows wrapper runs a local web server and opens the Pape app in your browser so it can be used like a desktop-installed app.
 
-How to run
+How to run locally
 1. Install Python 3.11+.
 2. Install dependencies:
    ```bash
@@ -13,8 +13,18 @@ How to run
    python desktop_app/app.py
    ```
 
-How to build an EXE
-```bash
-pip install pyinstaller
-pyinstaller --onefile --noconsole --add-data "../templates;templates" --add-data "../static;static" desktop_app/app.py
-```
+How to build an EXE for Windows
+1. Install PyInstaller:
+   ```bash
+   py -m pip install --upgrade pip pyinstaller
+   ```
+2. Build the executable:
+   ```bash
+   py -m PyInstaller --onefile --name pape_desktop desktop_app/app.py
+   ```
+3. The EXE will be created in the dist folder.
+
+Install on PC
+- Copy the generated EXE to a folder such as Program Files\Pape.
+- Create a shortcut on the Desktop.
+- Double-click the shortcut to start the app.

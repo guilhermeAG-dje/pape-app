@@ -1,20 +1,24 @@
 import os
-import sys
 import threading
 import time
 import sqlite3
+import webbrowser
 from datetime import datetime
-from flask import Flask, render_template_string, jsonify, request
+from flask import Flask, render_template_string, jsonify
 from werkzeug.serving import make_server
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 DB_PATH = os.path.join(ROOT, 'database.db')
+HOST = '127.0.0.1'
+PORT = 5001
 
 app = Flask(__name__)
 
+
 @app.route('/')
 def index():
-    return render_template_string('<html><body><h1>Pape Desktop</h1><p>Aplicação desktop a abrir o servidor web.</p></body></html>')
+    return render_template_string('<html><body><h1>Pape Desktop</h1><p>Aplicação desktop iniciada localmente.</p></body></html>')
+
 
 @app.route('/api/desktop/check')
 def check():
@@ -32,14 +36,21 @@ def check():
 
 
 def run_server():
-    server = make_server('127.0.0.1', 5001, app)
+    server = make_server(HOST, PORT, app)
     server.serve_forever()
+
+
+def launch_browser():
+    try:
+        webbrowser.open(f'http://{HOST}:{PORT}/')
+    except Exception:
+        pass
 
 
 if __name__ == '__main__':
     threading.Thread(target=run_server, daemon=True).start()
-    print('Pape desktop wrapper running on http://127.0.0.1:5001')
+    print(f'Pape desktop wrapper running on http://{HOST}:{PORT}')
     time.sleep(1)
-    os.startfile('http://127.0.0.1:5001/') if os.name == 'nt' else None
+    launch_browser()
     while True:
         time.sleep(5)
