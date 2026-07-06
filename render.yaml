@@ -31,3 +31,5 @@ services:
         generateValue: true
       - key: VAPID_CONTACT
         value: "mailto:you@example.com"
+      - key: FCM_SERVER_KEY
+        value: "REPLACE_WITH_YOUR_FCM_SERVER_KEY"

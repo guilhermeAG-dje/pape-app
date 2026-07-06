@@ -21,6 +21,7 @@ import re
 import shutil
 from urllib.parse import urlparse, unquote
 import json
+import requests
 try:
     from pywebpush import webpush, WebPushException
 except Exception:
@@ -383,6 +384,7 @@ class PushSubscription(db.Model):
     p256dh = db.Column(db.String(256), nullable=True)
     auth = db.Column(db.String(256), nullable=True)
     patient_id = db.Column(db.Integer, db.ForeignKey('patient.id'), nullable=True)
+    platform = db.Column(db.String(32), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
@@ -425,6 +427,13 @@ def ensure_sqlite_schema():
         db.session.execute(db.text("ALTER TABLE medication_log ADD COLUMN scheduled_time_hhmm VARCHAR(5)"))
     if not _sqlite_has_column('medication_log', 'late_minutes'):
         db.session.execute(db.text("ALTER TABLE medication_log ADD COLUMN late_minutes INTEGER"))
+
+    # push_subscription: platform (e.g., 'webpush' or 'android')
+    if not _sqlite_has_column('push_subscription', 'platform'):
+        try:
+            db.session.execute(db.text("ALTER TABLE push_subscription ADD COLUMN platform VARCHAR(32)"))
+        except Exception:
+            pass
 
     # Create a default patient and attach existing rows that have no patient_id yet.
     if Patient.query.count() == 0:
@@ -608,6 +617,57 @@ def send_web_push(sub_row, payload):
         return False
 
 
+def send_fcm(token, payload):
+    """Send an FCM downstream message using legacy server key.
+    Payload should be a dict with 'title', 'body', optional 'image_url' and 'data'.
+    """
+    key = (os.getenv('FCM_SERVER_KEY') or '').strip()
+    if not key:
+        return False
+    url = 'https://fcm.googleapis.com/fcm/send'
+    body = {
+        'to': token,
+        'priority': 'high',
+        'notification': {
+            'title': payload.get('title'),
+            'body': payload.get('body'),
+        },
+        'data': payload.get('data', {})
+    }
+    if payload.get('image_url'):
+        body['notification']['image'] = payload.get('image_url')
+    try:
+        resp = requests.post(url, json=body, headers={'Authorization': f'key={key}', 'Content-Type': 'application/json'}, timeout=10)
+        if resp.status_code == 200:
+            return True
+        # If token invalid, remove from DB (caller may pass token and row)
+        return False
+    except Exception:
+        return False
+
+
+@app.route('/api/push/android/register', methods=['POST'])
+def push_android_register():
+    try:
+        payload = request.get_json(silent=True) or {}
+        token = (payload.get('token') or '').strip()
+        pid = resolve_patient_id(payload) or None
+        if not token:
+            return jsonify({'ok': False, 'message': 'token missing'}), 400
+        sub = PushSubscription.query.filter_by(endpoint=token).first()
+        if not sub:
+            sub = PushSubscription(endpoint=token, platform='android', patient_id=pid)
+            db.session.add(sub)
+        else:
+            sub.platform = 'android'
+            sub.patient_id = pid
+        db.session.commit()
+        return jsonify({'ok': True})
+    except Exception:
+        db.session.rollback()
+        return jsonify({'ok': False}), 500
+
+
 def run_push_sender_job():
     # Find reminders due in the current minute and send push notifications to subscriptions.
     now = datetime.utcnow()
@@ -630,11 +690,19 @@ def run_push_sender_job():
             'body': body,
             'reminder_id': r.id,
             'scheduled_time_hhmm': hhmm,
-            'url': url_for('index', _external=True) + '?notification_action=open#summary'
+            'url': url_for('index', _external=True) + '?notification_action=open#summary',
+            'image_url': pill_image_url(getattr(r, 'pill_image_path', None))
         }
         subs = PushSubscription.query.filter((PushSubscription.patient_id == r.patient_id) | (PushSubscription.patient_id == None)).all()
         for s in subs:
-            send_web_push(s, payload)
+            try:
+                if getattr(s, 'platform', None) == 'android' and s.endpoint:
+                    # send FCM to Android token
+                    send_fcm(s.endpoint, {'title': payload['title'], 'body': payload['body'], 'image_url': payload.get('image_url'), 'data': {'reminder_id': r.id, 'scheduled_time_hhmm': hhmm}})
+                else:
+                    send_web_push(s, payload)
+            except Exception:
+                app.logger.exception('Failed to send push to subscription')
 
 
 
