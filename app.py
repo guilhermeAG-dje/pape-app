@@ -1223,7 +1223,9 @@ def resolve_patient_id(payload=None):
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    desktop_installer_path = os.path.join(app.root_path, 'static', 'downloads', 'pape-desktop.exe')
+    desktop_installer_exists = os.path.exists(desktop_installer_path)
+    return render_template('index.html', desktop_installer_exists=desktop_installer_exists)
 
 
 @app.route('/api/reminders', methods=['GET'])
