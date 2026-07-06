@@ -374,6 +374,14 @@ input:focus-visible {
 .ghost-btn {
   background: #e9eef2;
   color: var(--ink);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#desktop-install-link {
+  min-height: 44px;
 }
 
 .form-message {

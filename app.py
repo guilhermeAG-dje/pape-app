@@ -2426,6 +2426,13 @@ def service_worker():
     return resp
 
 
+@app.route('/downloads/<path:filename>')
+def download_file(filename):
+    download_dir = os.path.join(app.root_path, 'static', 'downloads')
+    os.makedirs(download_dir, exist_ok=True)
+    return send_from_directory(download_dir, filename, as_attachment=True)
+
+
 @app.route('/reset')
 def reset_client_cache():
     # Helper page: unregister SW + clear caches for users without DevTools.
