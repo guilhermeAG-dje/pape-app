@@ -20,6 +20,12 @@ import io
 import re
 import shutil
 from urllib.parse import urlparse, unquote
+import json
+try:
+    from pywebpush import webpush, WebPushException
+except Exception:
+    webpush = None
+    WebPushException = Exception
 
 if load_dotenv:
     load_dotenv()
@@ -371,6 +377,16 @@ class Patient(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
+class PushSubscription(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    endpoint = db.Column(db.String(1024), nullable=False)
+    p256dh = db.Column(db.String(256), nullable=True)
+    auth = db.Column(db.String(256), nullable=True)
+    patient_id = db.Column(db.Integer, db.ForeignKey('patient.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+
 def _sqlite_has_column(table, column):
     try:
         rows = db.session.execute(db.text(f'PRAGMA table_info({table})')).fetchall()
@@ -510,6 +526,116 @@ def get_sqlite_db_path():
     if path.startswith('/'):
         path = path[1:]
     return os.path.join(get_runtime_data_dir(), path or 'database.db')
+
+
+def get_vapid_keys():
+    public = (os.getenv('VAPID_PUBLIC_KEY') or '').strip()
+    private = (os.getenv('VAPID_PRIVATE_KEY') or '').strip()
+    return public, private
+
+
+@app.route('/api/push/public_key', methods=['GET'])
+def push_public_key():
+    pub, _ = get_vapid_keys()
+    return jsonify({'ok': True, 'public_key': pub})
+
+
+@app.route('/api/push/subscribe', methods=['POST'])
+def push_subscribe():
+    try:
+        payload = request.get_json(silent=True) or {}
+        endpoint = payload.get('endpoint')
+        keys = payload.get('keys') or {}
+        p256dh = keys.get('p256dh') if isinstance(keys, dict) else None
+        auth = keys.get('auth') if isinstance(keys, dict) else None
+        pid = resolve_patient_id(payload) or None
+        if not endpoint:
+            return jsonify({'ok': False, 'message': 'endpoint missing'}), 400
+        sub = PushSubscription.query.filter_by(endpoint=endpoint).first()
+        if not sub:
+            sub = PushSubscription(endpoint=endpoint, p256dh=p256dh, auth=auth, patient_id=pid)
+            db.session.add(sub)
+        else:
+            sub.p256dh = p256dh
+            sub.auth = auth
+            sub.patient_id = pid
+        db.session.commit()
+        return jsonify({'ok': True})
+    except Exception:
+        db.session.rollback()
+        return jsonify({'ok': False}), 500
+
+
+@app.route('/api/push/unsubscribe', methods=['POST'])
+def push_unsubscribe():
+    try:
+        payload = request.get_json(silent=True) or {}
+        endpoint = payload.get('endpoint')
+        if not endpoint:
+            return jsonify({'ok': False, 'message': 'endpoint missing'}), 400
+        PushSubscription.query.filter_by(endpoint=endpoint).delete()
+        db.session.commit()
+        return jsonify({'ok': True})
+    except Exception:
+        db.session.rollback()
+        return jsonify({'ok': False}), 500
+
+
+def send_web_push(sub_row, payload):
+    pub, priv = get_vapid_keys()
+    if not webpush or not pub or not priv:
+        return False
+    try:
+        webpush(
+            subscription_info={
+                'endpoint': sub_row.endpoint,
+                'keys': {
+                    'p256dh': sub_row.p256dh or '',
+                    'auth': sub_row.auth or ''
+                }
+            },
+            data=json.dumps(payload),
+            vapid_private_key=priv,
+            vapid_claims={"sub": f"mailto:{os.getenv('VAPID_CONTACT','admin@example.com')}"}
+        )
+        return True
+    except WebPushException:
+        try:
+            db.session.delete(sub_row)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+        return False
+
+
+def run_push_sender_job():
+    # Find reminders due in the current minute and send push notifications to subscriptions.
+    now = datetime.utcnow()
+    local_now = datetime.now()
+    hhmm = local_now.strftime('%H:%M')
+    weekday_js = (local_now.weekday() + 1) % 7
+
+    rem_q = MedicationReminder.query.filter_by(is_active=True).all()
+    for r in rem_q:
+        if weekday_js not in parse_weekdays(r.weekdays):
+            continue
+        times = times_from_row(r)
+        if hhmm not in times:
+            continue
+        # prepare payload
+        title = f'Hora de {r.medicine_name}'
+        body = f'{r.patient_name} · {r.dose} · {hhmm}'
+        payload = {
+            'title': title,
+            'body': body,
+            'reminder_id': r.id,
+            'scheduled_time_hhmm': hhmm,
+            'url': url_for('index', _external=True) + '?notification_action=open#summary'
+        }
+        subs = PushSubscription.query.filter((PushSubscription.patient_id == r.patient_id) | (PushSubscription.patient_id == None)).all()
+        for s in subs:
+            send_web_push(s, payload)
+
 
 
 def ensure_backup_dir():
@@ -999,7 +1125,21 @@ def reminders_create():
     default_patient = get_config('default_patient_name', 'Utente')
     patient_name = (payload.get('patient_name') or default_patient or 'Utente').strip()[:100]
     medicine_name = (payload.get('medicine_name') or '').strip()[:120]
-    dose = (payload.get('dose') or '').strip()[:80]
+    dose_raw = (payload.get('dose') or '').strip()
+    # Validate dose is numeric (allow comma or dot decimals)
+    def _normalize_dose(s):
+        if s is None or s == '':
+            return None
+        s2 = str(s).replace(',', '.').strip()
+        try:
+            v = float(s2)
+        except Exception:
+            return None
+        if v.is_integer():
+            return str(int(v))
+        return str(v)
+
+    dose = _normalize_dose(dose_raw)
     time_hhmm = (payload.get('time_hhmm') or '').strip()
     schedule_mode = normalize_schedule_mode(payload.get('schedule_mode'))
     weekdays_raw = extract_request_list(payload, 'weekdays') or extract_request_list(payload, 'days')
@@ -1015,8 +1155,8 @@ def reminders_create():
 
     if not medicine_name:
         return jsonify({'ok': False, 'message': 'Nome do medicamento e obrigatorio.'}), 400
-    if not dose:
-        return jsonify({'ok': False, 'message': 'Dose e obrigatoria.'}), 400
+    if dose is None:
+        return jsonify({'ok': False, 'message': 'Dose deve ser um numero valido.'}), 400
     if not times:
         return jsonify({'ok': False, 'message': 'Hora invalida. Use HH:MM.'}), 400
     if schedule_mode == 'weekly' and not weekdays:
@@ -1129,6 +1269,15 @@ def reminders_update(reminder_id):
             row.pill_image_path = save_pill_image(image_file, previous_filename=getattr(row, 'pill_image_path', None))
         except ValueError as exc:
             return jsonify({'ok': False, 'message': str(exc)}), 400
+
+    if 'dose' in payload:
+        raw = (payload.get('dose') or '').strip()
+        s2 = str(raw).replace(',', '.').strip()
+        try:
+            v = float(s2)
+        except Exception:
+            return jsonify({'ok': False, 'message': 'Dose deve ser um numero valido.'}), 400
+        row.dose = str(int(v)) if v.is_integer() else str(v)
 
     db.session.commit()
     return jsonify({'ok': True, 'item': serialize_reminder(row)})
@@ -2118,6 +2267,9 @@ def start_scheduler():
         b_hour = int(os.getenv('BACKUP_HOUR', '2'))
         b_minute = int(os.getenv('BACKUP_MINUTE', '0'))
         _scheduler.add_job(run_backup_job, 'cron', hour=b_hour, minute=b_minute)
+    if os.getenv('ENABLE_PUSH_SENDER', '0') == '1':
+        # run every minute to evaluate due reminders and send web-push
+        _scheduler.add_job(run_push_sender_job, 'interval', minutes=1)
     _scheduler.start()
 
 

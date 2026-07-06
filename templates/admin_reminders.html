@@ -82,7 +82,7 @@
         <h3>Adicionar alarme</h3>
         <form id="reminder-form" class="form-grid">
           <input name="medicine_name" type="text" placeholder="Medicamento (ex: Aspirina)" aria-label="Medicamento" maxlength="120" required />
-          <input name="dose" type="text" placeholder="Dose (ex: 1 comprimido)" aria-label="Dose" maxlength="80" required />
+          <input name="dose" type="number" step="any" min="0" placeholder="Dose (ex: 1)" aria-label="Dose" required />
           <input name="time_hhmm" type="time" aria-label="Hora principal" required />
           <div class="times-extra-group" data-times-extra-group></div>
           <button type="button" class="btn-outline" data-times-extra-add>Adicionar hora</button>
